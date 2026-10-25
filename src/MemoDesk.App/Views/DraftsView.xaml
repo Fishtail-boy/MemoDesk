@@ -1,0 +1,182 @@
+<UserControl x:Class="MemoDesk.App.Views.DraftsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MemoDesk.App.ViewModels">
+    <Grid Margin="32,26,32,32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="待确认" Style="{StaticResource PageTitle}" />
+            <TextBlock Text="AI 解析出的候选事项。确认前可以修改类型、内容与时间；只有确认后才生成正式事项和提醒。"
+                       Style="{StaticResource PageSubtitle}" />
+            <TextBlock Text="{Binding Message}" Style="{StaticResource MetaText}" Margin="0,8,0,0"
+                       Visibility="{Binding Message, Converter={StaticResource NonEmptyToVisible}}" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,16,0,0">
+            <StackPanel>
+                <TextBlock Text="没有待确认的内容。按 Ctrl+Alt+Space 记录一条，解析完成后会出现在这里。"
+                           Style="{StaticResource MetaText}"
+                           Margin="4,0,0,10"
+                           Visibility="{Binding Cards.Count, Converter={StaticResource ZeroToVisible}}" />
+
+                <ItemsControl ItemsSource="{Binding Cards}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+                                <StackPanel>
+                                    <Grid>
+                                        <Border Background="{DynamicResource AccentSoftBrush}" CornerRadius="4" Padding="8,2" HorizontalAlignment="Left">
+                                            <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource AccentBrush}" />
+                                        </Border>
+                                        <TextBlock Text="{Binding CapturedText}" Style="{StaticResource MetaText}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    </Grid>
+
+                                    <Border Background="{DynamicResource PaperBrush}" CornerRadius="6" Padding="12" Margin="0,10,0,0">
+                                        <TextBlock Text="{Binding RawText}" TextWrapping="Wrap" Foreground="{DynamicResource BodyBrush}" />
+                                    </Border>
+
+                                    <TextBlock Text="{Binding ErrorText}"
+                                               Foreground="{DynamicResource DangerBrush}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap"
+                                               Margin="0,8,0,0"
+                                               Visibility="{Binding ErrorText, Converter={StaticResource NonEmptyToVisible}}" />
+
+                                    <ItemsControl ItemsSource="{Binding Candidates}" Margin="0,4,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,8,0,0">
+                                                    <StackPanel>
+                                                        <Grid>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <ComboBox Width="112"
+                                                                          ItemsSource="{x:Static vm:DraftCandidateViewModel.TypeChoices}"
+                                                                          DisplayMemberPath="Label"
+                                                                          SelectedValuePath="Type"
+                                                                          SelectedValue="{Binding Type, Mode=TwoWay}" />
+                                                                <ComboBox Width="92"
+                                                                          Margin="8,0,0,0"
+                                                                          ItemsSource="{x:Static vm:DraftCandidateViewModel.PriorityChoices}"
+                                                                          DisplayMemberPath="Label"
+                                                                          SelectedValuePath="Value"
+                                                                          SelectedValue="{Binding Priority, Mode=TwoWay}" />
+                                                            </StackPanel>
+                                                            <Button Content="移除"
+                                                                    HorizontalAlignment="Right"
+                                                                    Style="{StaticResource GhostButton}"
+                                                                    Padding="8,2"
+                                                                    FontSize="11"
+                                                                    Command="{Binding DataContext.RemoveCandidateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                    CommandParameter="{Binding}" />
+                                                        </Grid>
+
+                                                        <TextBox Text="{Binding Content, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Style="{StaticResource BoxedField}"
+                                                                 AcceptsReturn="True"
+                                                                 TextWrapping="Wrap"
+                                                                 MinHeight="40"
+                                                                 MaxHeight="100"
+                                                                 VerticalScrollBarVisibility="Auto"
+                                                                 Margin="0,8,0,0" />
+
+                                                        <Grid Margin="0,8,0,0">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="日期" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                                <DatePicker SelectedDate="{Binding Date}" Width="130" />
+                                                            </StackPanel>
+                                                            <StackPanel Grid.Column="1"
+                                                                        Orientation="Horizontal"
+                                                                        Margin="16,0,0,0"
+                                                                        Visibility="{Binding HasReminderFields, Converter={StaticResource BoolToVisible}}">
+                                                                <TextBlock Text="提醒" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                                <DatePicker SelectedDate="{Binding RemindDate}" Width="130" />
+                                                                <TextBox Text="{Binding RemindTime}" Style="{StaticResource FieldBox}" Width="60" Margin="6,0,0,0" ToolTip="HH:mm" />
+                                                            </StackPanel>
+                                                        </Grid>
+
+                                                        <StackPanel Orientation="Horizontal"
+                                                                    Margin="0,8,0,0"
+                                                                    Visibility="{Binding IsWorkLog, Converter={StaticResource BoolToVisible}}">
+                                                            <TextBlock Text="工作时段" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                            <TextBox Text="{Binding WorkStart}" Style="{StaticResource FieldBox}" Width="60" ToolTip="HH:mm" />
+                                                            <TextBlock Text="–" Style="{StaticResource MetaText}" VerticalAlignment="Center" Margin="6,0" />
+                                                            <TextBox Text="{Binding WorkEnd}" Style="{StaticResource FieldBox}" Width="60" ToolTip="HH:mm" />
+                                                            <TextBlock Text="结束日期" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="12,0,6,0" />
+                                                            <DatePicker SelectedDate="{Binding WorkEndDate}" Width="126" />
+                                                        </StackPanel>
+
+                                                        <TextBlock Text="{Binding ValidationText}"
+                                                                   Foreground="{DynamicResource DangerBrush}"
+                                                                   FontSize="11.5"
+                                                                   TextWrapping="Wrap"
+                                                                   Margin="0,6,0,0"
+                                                                   Visibility="{Binding ValidationText, Converter={StaticResource NonEmptyToVisible}}" />
+
+                                                        <TextBlock Text="标签（逗号分隔）" Style="{StaticResource FieldLabel}" Margin="0,8,0,4" />
+                                                        <TextBox Text="{Binding TagsText}" Style="{StaticResource FieldBox}" />
+
+                                                        <StackPanel Margin="0,8,0,0"
+                                                                    Visibility="{Binding IssuesText, Converter={StaticResource NonEmptyToVisible}}">
+                                                            <TextBlock Text="待确认 / 备注" Style="{StaticResource FieldLabel}" />
+                                                            <TextBox Text="{Binding IssuesText}"
+                                                                     Style="{StaticResource BoxedField}"
+                                                                     AcceptsReturn="True"
+                                                                     TextWrapping="Wrap"
+                                                                     MaxHeight="80"
+                                                                     VerticalScrollBarVisibility="Auto" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                                        <Button Content="丢弃"
+                                                Style="{StaticResource GhostButton}"
+                                                Margin="0,0,8,0"
+                                                Visibility="{Binding IsAwaiting, Converter={StaticResource BoolToVisible}}"
+                                                Command="{Binding DataContext.DiscardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Content="重试解析"
+                                                Style="{StaticResource GhostButton}"
+                                                Margin="0,0,8,0"
+                                                Visibility="{Binding IsFailed, Converter={StaticResource BoolToVisible}}"
+                                                Command="{Binding DataContext.RetryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Content="手动整理"
+                                                Style="{StaticResource GhostButton}"
+                                                Margin="0,0,8,0"
+                                                Visibility="{Binding IsFailed, Converter={StaticResource BoolToVisible}}"
+                                                Command="{Binding DataContext.ManualCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Content="重新加载"
+                                                Style="{StaticResource GhostButton}"
+                                                Margin="0,0,8,0"
+                                                Visibility="{Binding HasConflict, Converter={StaticResource BoolToVisible}}"
+                                                Command="{Binding DataContext.ReloadCardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Content="确认保存"
+                                                Style="{StaticResource PrimaryButton}"
+                                                IsEnabled="{Binding HasConflict, Converter={StaticResource InverseBoolean}}"
+                                                Visibility="{Binding IsAwaiting, Converter={StaticResource BoolToVisible}}"
+                                                Command="{Binding DataContext.ConfirmCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

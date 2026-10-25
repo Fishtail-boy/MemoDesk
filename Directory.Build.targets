@@ -1,0 +1,44 @@
+<Project>
+  <!-- SDK 2.5.1 的组件自包含输出缺少 Insights 资源 DLL；它仍随官方 Runtime MSIX 发布。
+       仅从已还原的、当前架构的官方包取出该文件，并同时覆盖 build / publish / 探针输出。 -->
+  <UsingTask TaskName="MemoExtractNotificationResource" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <ArchivePath ParameterType="System.String" Required="true" />
+      <OutputFile ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.IO.Compression" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        using (var stream = File.OpenRead(ArchivePath))
+        using (var archive = new ZipArchive(stream, ZipArchiveMode.Read))
+        {
+            var entry = archive.GetEntry("Microsoft.WindowsAppRuntime.Insights.Resource.dll");
+            if (entry == null) { Log.LogError("Official Windows App SDK runtime is missing the notification resource DLL."); return false; }
+            if (!File.Exists(OutputFile) || new FileInfo(OutputFile).Length != entry.Length
+                || File.GetLastWriteTimeUtc(OutputFile) < File.GetLastWriteTimeUtc(ArchivePath))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(OutputFile));
+                using (var input = entry.Open())
+                using (var output = File.Create(OutputFile)) input.CopyTo(output);
+            }
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+  <Target Name="MemoIncludeNotificationResource" BeforeTargets="AssignTargetPaths;GetCopyToOutputDirectoryItems;ComputeFilesToPublish"
+          DependsOnTargets="GetWindowsAppSDKNativePlatform"
+          Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(WindowsAppSDKSelfContained)' == 'true' and '$(MicrosoftWindowsAppSDKPackageDir)' != '' and ('$(OutputType)' == 'WinExe' or '$(OutputType)' == 'Exe')">
+    <PropertyGroup>
+      <_MemoSdkArchive>$(MicrosoftWindowsAppSDKPackageDir)tools/MSIX/win10-$(NativePlatform)/Microsoft.WindowsAppRuntime.2.msix</_MemoSdkArchive>
+      <_MemoSdkResource>$(IntermediateOutputPath)notification-runtime/Microsoft.WindowsAppRuntime.Insights.Resource.dll</_MemoSdkResource>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(_MemoSdkArchive)')" Text="Windows App SDK Runtime MSIX not found: $(_MemoSdkArchive)" />
+    <MemoExtractNotificationResource ArchivePath="$(_MemoSdkArchive)" OutputFile="$(_MemoSdkResource)" />
+    <ItemGroup>
+      <Content Include="$(_MemoSdkResource)" Link="Microsoft.WindowsAppRuntime.Insights.Resource.dll"
+               TargetPath="Microsoft.WindowsAppRuntime.Insights.Resource.dll"
+               CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+</Project>

@@ -1,0 +1,83 @@
+<UserControl x:Class="MemoDesk.App.Views.WorkLogsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:MemoDesk.App.Controls">
+    <Grid Margin="32,26,32,32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <Grid>
+                <TextBlock Text="工作记录" Style="{StaticResource PageTitle}" />
+                <TextBox x:Name="SearchBox"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource FieldBox}"
+                         Width="240"
+                         Height="34"
+                         HorizontalAlignment="Right"
+                         VerticalAlignment="Bottom"
+                         PreviewKeyDown="SearchBox_PreviewKeyDown">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Enter" Command="{Binding QueryCommand}" />
+                    </TextBox.InputBindings>
+                </TextBox>
+            </Grid>
+            <StackPanel Orientation="Horizontal" Margin="0,16,0,0" VerticalAlignment="Center">
+                <TextBlock Text="从" Style="{StaticResource MetaText}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <controls:DateField x:Name="FromField" SelectedDate="{Binding FromDate}" Width="130" />
+                <TextBlock Text="到" Style="{StaticResource MetaText}" VerticalAlignment="Center" Margin="10,0,6,0" />
+                <controls:DateField x:Name="ToField" SelectedDate="{Binding ToDate}" Width="130" />
+                <Button Content="查询" Style="{StaticResource PrimaryButton}" Margin="12,0,0,0" Click="Query_Click" />
+                <Button Content="近 7 天" Style="{StaticResource GhostButton}" Margin="8,0,0,0" Command="{Binding ThisWeekCommand}" />
+                <TextBlock Text="{Binding Message}" Style="{StaticResource MetaText}" VerticalAlignment="Center" Margin="12,0,0,0" />
+            </StackPanel>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,16,0,0">
+            <StackPanel>
+                <Border BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,1,0,1">
+                    <ItemsControl ItemsSource="{Binding Rows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="12,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding TimeText}" Style="{StaticResource MetaText}" VerticalAlignment="Top" Margin="0,3,0,0" />
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{Binding Content}" FontSize="14" Foreground="{DynamicResource InkBrush}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding RawText}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource FaintBrush}"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,4,0,0"
+                                                       Visibility="{Binding RawText, Converter={StaticResource NonEmptyToVisible}}" />
+                                            <TextBlock Text="{Binding RecordedText}" Style="{StaticResource MetaText}" Margin="0,4,0,0" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button Content="编辑" Style="{StaticResource GhostButton}" Padding="10,3" FontSize="12" Margin="6,0,0,0"
+                                                    Command="{Binding DataContext.EditCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="删除" Style="{StaticResource GhostButton}" Padding="10,3" FontSize="12" Margin="6,0,0,0"
+                                                    Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+                <TextBlock Text="{Binding EmptyHint}"
+                           Style="{StaticResource MetaText}"
+                           Margin="4,12,0,0"
+                           Visibility="{Binding Rows.Count, Converter={StaticResource ZeroToVisible}}" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

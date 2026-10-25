@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- LibraryImport 源生成器生成 unsafe 代码。 -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>MemoDesk.Platform.Windows</RootNamespace>
+    <AssemblyName>MemoDesk.Platform.Windows</AssemblyName>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <!-- 允许在非 Windows 环境交叉编译（CI/开发沙盒），不影响 Windows 上的正常构建。 -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- WPF 应用不使用 PRI 资源；关闭 MSIX PRI 生成，避免非 Windows 环境执行 Windows 工具。 -->
+    <AppxGeneratePriEnabled>false</AppxGeneratePriEnabled>
+    <ShouldComputeInputPris>false</ShouldComputeInputPris>
+    <EnableDefaultWindowsAppSdkPRIResourceItems>false</EnableDefaultWindowsAppSdkPRIResourceItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 仅引用 Foundation（含 AppNotifications 投影）；完整 Runtime 由部署环境提供，避免拖入 WinUI/ML。 -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.Foundation" Version="2.3.12" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" Version="2.1.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MemoDesk.Core\MemoDesk.Core.csproj" />
+  </ItemGroup>
+
+</Project>

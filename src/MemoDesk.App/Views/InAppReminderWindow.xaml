@@ -1,0 +1,71 @@
+<Window x:Class="MemoDesk.App.Views.InAppReminderWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="370"
+        SizeToContent="Height"
+        WindowStyle="None"
+        AllowsTransparency="False"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ResizeMode="NoResize"
+        FontFamily="Microsoft YaHei UI"
+        FontSize="14">
+    <Border Margin="0"
+            Background="{DynamicResource SheetBrush}"
+            CornerRadius="16"
+            BorderBrush="{DynamicResource RuleBrush}"
+            BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" ShadowDepth="3" Direction="270" Opacity="0.14" Color="#447290" />
+        </Border.Effect>
+
+        <StackPanel Margin="18,14,18,16">
+            <Grid>
+                <StackPanel Orientation="Horizontal">
+                    <Border Width="7" Height="7" Background="{DynamicResource CyanBrush}" CornerRadius="3.5" Margin="0,0,8,0" VerticalAlignment="Center" />
+                    <TextBlock Text="提醒" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource InkBrush}" />
+                    <Border x:Name="CatchUpBadge"
+                            Background="{DynamicResource WarnSoftBrush}"
+                            CornerRadius="2"
+                            Padding="5,0"
+                            Margin="8,0,0,0"
+                            VerticalAlignment="Center"
+                            Visibility="Collapsed">
+                        <TextBlock Text="补提醒" FontSize="10.5" Foreground="{DynamicResource SealBrush}" />
+                    </Border>
+                </StackPanel>
+                <Button Content="✕"
+                        HorizontalAlignment="Right"
+                        Style="{StaticResource LinkButton}"
+                        FontSize="12"
+                        Click="Close_Click" />
+            </Grid>
+
+            <TextBlock x:Name="TypeAndTime" Style="{StaticResource MetaText}" Margin="0,5,0,0" />
+            <TextBlock x:Name="ContentText"
+                       TextWrapping="Wrap"
+                       FontSize="15" MaxHeight="160" TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource InkBrush}"
+                       Margin="0,7,0,0" />
+
+            <Border BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,1,0,0" Margin="0,12,0,0" />
+            <DockPanel Margin="0,6,0,0">
+                <TextBlock x:Name="QueueHint" Style="{StaticResource MetaText}" FontSize="11" VerticalAlignment="Center" />
+                <Button x:Name="NextButton" Content="下一条" HorizontalAlignment="Right" Style="{StaticResource LinkButton}" Click="Close_Click" Visibility="Collapsed" />
+            </DockPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                <ComboBox x:Name="SnoozeBox" Width="118" DisplayMemberPath="Label" Height="30" VerticalContentAlignment="Center" />
+                <Button Content="稍后提醒"
+                        Style="{StaticResource GhostButton}"
+                        Margin="8,0,0,0"
+                        Click="Snooze_Click" />
+                <Button Content="已完成"
+                        Style="{StaticResource PrimaryButton}"
+                        Margin="8,0,0,0"
+                        Click="Complete_Click" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

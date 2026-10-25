@@ -1,0 +1,61 @@
+# 构建产物
+bin/
+obj/
+artifacts/
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+*.DotSettings.user
+
+# 测试
+TestResults/
+coverage/
+
+# 打包与签名材料（证书绝不入库）
+*.pfx
+*.cer
+*.msix
+*.msixbundle
+
+# 系统
+Thumbs.db
+.DS_Store
+
+# 个人配置、运行数据与凭据
+.codex/
+.agents/
+.idea/
+.mono/
+.cache/
+.env
+.env.*
+!.env.example
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.log
+*.trx
+*.p12
+*.pem
+*.key
+*.crt
+*.zip
+*.7z
+
+# 本地规划、历史复验和机器相关输出；源文件仍留在本机
+/design/
+/实施计划.md
+/docs/*.md
+/docs/acceptance-results/
+/docs/implementation-results/*
+!/docs/implementation-results/2026-10-25-experience-upgrade/
+/docs/implementation-results/2026-10-25-experience-upgrade/*
+!/docs/implementation-results/2026-10-25-experience-upgrade/MemoFirstProbe/
+/docs/implementation-results/2026-10-25-experience-upgrade/MemoFirstProbe/*
+!/docs/implementation-results/2026-10-25-experience-upgrade/MemoFirstProbe/*.cs
+!/docs/implementation-results/2026-10-25-experience-upgrade/MemoFirstProbe/*.csproj

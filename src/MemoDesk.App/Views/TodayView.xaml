@@ -1,0 +1,221 @@
+<UserControl x:Class="MemoDesk.App.Views.TodayView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="32,26,30,30">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- 报头 -->
+        <StackPanel Grid.Row="0">
+            <Grid>
+                <TextBlock Text="今日概览" Style="{StaticResource PageTitle}" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                    <TextBlock Text="{Binding DateDay}"
+                               FontFamily="{DynamicResource NumeralFont}"
+                               FontSize="22"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource InkBrush}" />
+                    <TextBlock Text="{Binding DateMeta}" Style="{StaticResource MetaText}" Margin="8,0,0,4" />
+                </StackPanel>
+            </Grid>
+            <Border BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,0,0,1" Margin="0,14,0,0" />
+        </StackPanel>
+
+        <Grid Grid.Row="1" Margin="0,20,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="292" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 主账页 -->
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,34,0">
+                <StackPanel>
+                    <Grid Margin="0,0,0,2">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="今日待办" Style="{StaticResource SectionTitle}" />
+                            <TextBlock Text="{Binding TodayTodos.Count, StringFormat={}{0:D2}}" Style="{StaticResource SectionCount}" />
+                        </StackPanel>
+                        <Button Content="全部待办"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                Style="{StaticResource LinkButton}"
+                                Command="{Binding NavigateCommand}"
+                                CommandParameter="todos" />
+                    </Grid>
+
+                    <ItemsControl ItemsSource="{Binding TodayTodos}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,0,0,1" Padding="0,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Button Style="{StaticResource LedgerCheck}"
+                                                Margin="0,3,13,0"
+                                                VerticalAlignment="Top"
+                                                ToolTip="标记完成"
+                                                Command="{Binding DataContext.CompleteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{Binding Content}" FontSize="13.5" Foreground="{DynamicResource BodyBrush}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Meta}" Style="{StaticResource MetaText}" Margin="0,3,0,0" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Text="今天没有待办，享受一点空闲。"
+                               Style="{StaticResource MetaText}"
+                               Margin="0,10,0,0"
+                               Visibility="{Binding HasTodayTodos, Converter={StaticResource InverseBoolToVisible}}" />
+
+                    <!-- 逾期 -->
+                    <StackPanel Margin="0,24,0,0" Visibility="{Binding HasOverdue, Converter={StaticResource BoolToVisible}}">
+                        <Grid Margin="0,0,0,2">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="逾期待办" Style="{StaticResource SectionTitle}" />
+                                <TextBlock Text="{Binding OverdueTodos.Count, StringFormat={}{0:D2}}" Style="{StaticResource SectionCount}" />
+                            </StackPanel>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding OverdueTodos}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,0,0,1" Padding="0,10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Button Style="{StaticResource LedgerCheck}"
+                                                    Margin="0,3,13,0"
+                                                    VerticalAlignment="Top"
+                                                    ToolTip="标记完成"
+                                                    Command="{Binding DataContext.CompleteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="{Binding Content}" FontSize="13.5" Foreground="{DynamicResource BodyBrush}" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding Meta}" Style="{StaticResource MetaText}" Margin="0,3,0,0" />
+                                            </StackPanel>
+                                            <Border Grid.Column="2" Style="{StaticResource StampSeal}" Margin="10,0,0,0">
+                                                <TextBlock Text="逾期" FontSize="10.5" Foreground="{DynamicResource SealBrush}" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <!-- 时间线 -->
+                    <StackPanel Margin="0,26,0,0">
+                        <Grid Margin="0,0,0,2">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="今日活动" Style="{StaticResource SectionTitle}" />
+                                <TextBlock Text="{Binding Timeline.Count, StringFormat={}{0:D2}}" Style="{StaticResource SectionCount}" />
+                            </StackPanel>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding Timeline}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,0,0,1" Padding="0,9">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="46" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding TimeText}"
+                                                       FontFamily="{DynamicResource NumeralFont}"
+                                                       FontSize="11.5"
+                                                       Foreground="{DynamicResource FaintBrush}"
+                                                       VerticalAlignment="Center" />
+                                            <Border Grid.Column="1" Style="{StaticResource Stamp}" Padding="3,5" Margin="0,0,10,0">
+                                                <TextBlock Text="{Binding TypeText}" FontSize="10.5" Foreground="{DynamicResource MutedBrush}" />
+                                            </Border>
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding Content}"
+                                                       FontSize="12.5"
+                                                       Foreground="{DynamicResource BodyBrush}"
+                                                       TextWrapping="Wrap"
+                                                       VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="今天还没有活动记录。"
+                                   Style="{StaticResource MetaText}"
+                                   Margin="0,10,0,0"
+                                   Visibility="{Binding IsTimelineEmpty, Converter={StaticResource BoolToVisible}}" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- 右侧便签栏 -->
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <Border BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,1,0,0" Padding="0,14,0,0">
+                        <StackPanel>
+                            <TextBlock Text="未安排" Style="{StaticResource MetaText}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <TextBlock Text="{Binding UnscheduledCount}" Style="{StaticResource NumeralText}" FontSize="34" FontWeight="SemiBold" />
+                                <TextBlock Text="项" Style="{StaticResource MetaText}" Margin="6,0,0,6" VerticalAlignment="Bottom" />
+                            </StackPanel>
+                            <Button Content="去安排"
+                                    Style="{StaticResource LinkButton}"
+                                    HorizontalAlignment="Left"
+                                    Margin="0,8,0,0"
+                                    Command="{Binding NavigateCommand}"
+                                    CommandParameter="todos" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,1,0,0" Padding="0,14,0,0" Margin="0,22,0,0">
+                        <StackPanel>
+                            <TextBlock Text="今日备忘" Style="{StaticResource MetaText}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <TextBlock Text="{Binding MemoCount}" Style="{StaticResource NumeralText}" FontSize="34" FontWeight="SemiBold" />
+                                <TextBlock Text="条" Style="{StaticResource MetaText}" Margin="6,0,0,6" VerticalAlignment="Bottom" />
+                            </StackPanel>
+                            <Button Content="打开备忘"
+                                    Style="{StaticResource LinkButton}"
+                                    HorizontalAlignment="Left"
+                                    Margin="0,8,0,0"
+                                    Command="{Binding NavigateCommand}"
+                                    CommandParameter="memos" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,1,0,0" Padding="0,14,0,0" Margin="0,22,0,0">
+                        <StackPanel>
+                            <TextBlock Text="待确认" Style="{StaticResource MetaText}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <TextBlock Text="{Binding PendingDraftCount}" Style="{StaticResource NumeralText}" FontSize="34" FontWeight="SemiBold" Foreground="{DynamicResource SealBrush}" />
+                                <TextBlock Text="张" Style="{StaticResource MetaText}" Margin="6,0,0,6" VerticalAlignment="Bottom" />
+                            </StackPanel>
+                            <Button Content="去确认"
+                                    Style="{StaticResource LinkButton}"
+                                    HorizontalAlignment="Left"
+                                    Margin="0,8,0,0"
+                                    Command="{Binding NavigateCommand}"
+                                    CommandParameter="drafts" />
+                        </StackPanel>
+                    </Border>
+
+                    <Button Content="快速记录　Ctrl+Alt+Space"
+                            Style="{StaticResource PrimaryButton}"
+                            HorizontalAlignment="Left"
+                            Margin="0,28,0,0"
+                            Command="{Binding QuickCaptureCommand}" />
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

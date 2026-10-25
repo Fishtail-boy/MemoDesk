@@ -1,0 +1,71 @@
+<Window x:Class="MemoDesk.App.Views.QuickCaptureWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="记一条"
+        Width="560"
+        SizeToContent="Height"
+        WindowStyle="None"
+        AllowsTransparency="False"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ResizeMode="NoResize"
+        FocusManager.FocusedElement="{Binding ElementName=InputBox}"
+        FontFamily="Microsoft YaHei UI"
+        FontSize="14">
+    <Border Margin="0"
+            Background="{DynamicResource SheetBrush}"
+            CornerRadius="16"
+            BorderBrush="{DynamicResource RuleBrush}"
+            BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="22" ShadowDepth="3" Direction="270" Opacity="0.12" Color="#447290" />
+        </Border.Effect>
+
+        <StackPanel Margin="20,14,20,12">
+            <Grid Margin="0,0,0,6">
+                <TextBlock Text="记一条" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" />
+                <TextBlock x:Name="HotkeyHint" Text="记一条" FontSize="10.5" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Right" />
+            </Grid>
+
+            <Grid>
+                <TextBox x:Name="InputBox"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         MinHeight="48"
+                         MaxHeight="160"
+                         Padding="0,4"
+                         VerticalContentAlignment="Top"
+                         VerticalScrollBarVisibility="Auto"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         FontSize="15"
+                         Foreground="{DynamicResource InkBrush}"
+                         CaretBrush="{DynamicResource SealBrush}"
+                         PreviewKeyDown="InputBox_PreviewKeyDown"
+                         TextChanged="InputBox_TextChanged" />
+                <TextBlock x:Name="PlaceholderText"
+                           Text="比如：3 秒后提醒我喝水"
+                           FontSize="15"
+                           Foreground="{DynamicResource FaintBrush}"
+                           IsHitTestVisible="False"
+                           Margin="2,4,0,0"
+                           VerticalAlignment="Top" />
+            </Grid>
+
+            <Border BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,1,0,0" Margin="0,10,0,0" />
+
+            <Grid Margin="0,8,0,0">
+                <TextBlock x:Name="ErrorText"
+                           Visibility="Collapsed"
+                           FontSize="11.5"
+                           Foreground="{DynamicResource DangerBrush}"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="Enter 保存　Shift+Enter 换行　Esc 取消"
+                           FontSize="10.5"
+                           Foreground="{DynamicResource FaintBrush}"
+                           HorizontalAlignment="Right" />
+            </Grid>
+        </StackPanel>
+    </Border>
+</Window>

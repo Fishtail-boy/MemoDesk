@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Package
+    xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+    xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+    xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+    xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+    xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+    IgnorableNamespaces="uap desktop com rescap">
+
+  <!--
+    Identity 的 Publisher 必须与签名证书的 Subject 完全一致（见 New-DevCertificate.ps1）。
+    AUMID = PackageFamilyName + "!App"，后续通知计划与冷启动激活依赖它保持稳定。
+  -->
+  <Identity Name="MemoDesk"
+            Publisher="CN=MemoDesk Dev"
+            Version="0.9.0.0"
+            ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>备忘助手</DisplayName>
+    <PublisherDisplayName>MemoDesk Dev</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop"
+                        MinVersion="10.0.19041.0"
+                        MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="zh-CN" />
+    <Resource Language="en-US" />
+  </Resources>
+
+  <Applications>
+    <Application Id="App"
+                 Executable="MemoDesk.App.exe"
+                 EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+          DisplayName="备忘助手"
+          Description="工作碎片捕获与提醒助手"
+          BackgroundColor="transparent"
+          Square150x150Logo="Assets\Square150x150Logo.png"
+          Square44x44Logo="Assets\Square44x44Logo.png" />
+
+      <Extensions>
+        <desktop:Extension Category="windows.toastNotificationActivation">
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="7D2A9E14-3C5B-4F8A-9B6D-2E1C8A4F7C30" />
+        </desktop:Extension>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer Executable="MemoDesk.App.exe"
+                           Arguments="----AppNotificationActivated:"
+                           DisplayName="备忘助手">
+              <com:Class Id="7D2A9E14-3C5B-4F8A-9B6D-2E1C8A4F7C30" />
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

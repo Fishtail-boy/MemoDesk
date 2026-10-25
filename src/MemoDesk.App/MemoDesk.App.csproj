@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>MemoDesk.App</RootNamespace>
+    <AssemblyName>MemoDesk.App</AssemblyName>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <ApplicationIcon>Assets\memo.ico</ApplicationIcon>
+    <!-- 允许在非 Windows 环境交叉编译（CI/开发沙盒），不影响 Windows 上的正常构建。 -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- Windows 上采用 Windows App SDK 自包含部署，避免额外安装 Runtime；非 Windows 仅交叉编译。 -->
+    <WindowsAppSDKSelfContained Condition="$([MSBuild]::IsOSPlatform('Windows'))">true</WindowsAppSDKSelfContained>
+    <WindowsAppSDKSelfContained Condition="!$([MSBuild]::IsOSPlatform('Windows'))">false</WindowsAppSDKSelfContained>
+    <RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-x64</RuntimeIdentifier>
+    <AppxGeneratePriEnabled>false</AppxGeneratePriEnabled>
+    <ShouldComputeInputPris>false</ShouldComputeInputPris>
+    <EnableDefaultWindowsAppSdkPRIResourceItems>false</EnableDefaultWindowsAppSdkPRIResourceItems>
+    <!-- 非 Windows 环境仅做交叉编译：跳过 Runtime 包的运行时检查（实际运行只在 Windows）。 -->
+    <MicrosoftWindowsAppSDKPackageDir Condition="!$([MSBuild]::IsOSPlatform('Windows'))">$(NuGetPackageRoot)microsoft.windowsappsdk.runtime\2.5.1</MicrosoftWindowsAppSDKPackageDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.13" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="10.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.5.1"
+                      Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MemoDesk.Core\MemoDesk.Core.csproj" />
+    <ProjectReference Include="..\MemoDesk.Infrastructure\MemoDesk.Infrastructure.csproj" />
+    <ProjectReference Include="..\MemoDesk.Platform.Windows\MemoDesk.Platform.Windows.csproj" />
+  </ItemGroup>
+
+</Project>

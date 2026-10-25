@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-x64</RuntimeIdentifier>
+    <StartupObject>ReviewProbe.Program</StartupObject>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <WindowsAppSDKSelfContained Condition="$([MSBuild]::IsOSPlatform('Windows'))">true</WindowsAppSDKSelfContained>
+    <WindowsAppSDKSelfContained Condition="!$([MSBuild]::IsOSPlatform('Windows'))">false</WindowsAppSDKSelfContained>
+    <MicrosoftWindowsAppSDKPackageDir Condition="!$([MSBuild]::IsOSPlatform('Windows'))">$(NuGetPackageRoot)microsoft.windowsappsdk.runtime\2.5.1</MicrosoftWindowsAppSDKPackageDir>
+    <AppxGeneratePriEnabled>false</AppxGeneratePriEnabled>
+    <ShouldComputeInputPris>false</ShouldComputeInputPris>
+    <EnableDefaultWindowsAppSdkPRIResourceItems>false</EnableDefaultWindowsAppSdkPRIResourceItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/MemoDesk.App/MemoDesk.App.csproj" />
+  </ItemGroup>
+</Project>
