@@ -1,6 +1,7 @@
 <UserControl x:Class="MemoDesk.App.Views.VaultView"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:vault="clr-namespace:MemoDesk.Vault.Core;assembly=MemoDesk.Vault.Core"
  Loaded="View_Loaded" Unloaded="View_Unloaded" PreviewMouseDown="Activity" PreviewKeyDown="Activity">
  <UserControl.Resources>
   <Style TargetType="PasswordBox"><Setter Property="Padding" Value="10,8"/><Setter Property="FontSize" Value="16"/>
@@ -35,7 +36,7 @@
     <TextBlock Text="输入主密码以访问账号。主密码不会被保存，也没有找回入口。" TextWrapping="Wrap" Style="{StaticResource PageSubtitle}" Margin="0,10,0,24"/>
     <TextBlock Text="主密码" Style="{StaticResource SectionTitle}" Margin="0,0,0,8"/>
     <PasswordBox x:Name="MasterBox" KeyDown="Master_KeyDown" PasswordChanged="Master_PasswordChanged"/>
-    <TextBlock Text="12–1024 个字符，支持中文和空格；不要求特定字符组合。" Style="{StaticResource MetaText}" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="{Binding IsNew,Converter={StaticResource BoolToVisible}}"/>
+    <TextBlock Text="{x:Static vault:MasterPasswordPolicy.Requirements}" Style="{StaticResource MetaText}" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="{Binding IsNew,Converter={StaticResource BoolToVisible}}"/>
     <StackPanel Visibility="{Binding IsNew,Converter={StaticResource BoolToVisible}}" Margin="0,14,0,0">
      <TextBlock Text="确认主密码" Style="{StaticResource MetaText}" Margin="0,0,0,8"/>
      <PasswordBox x:Name="ConfirmMasterBox" KeyDown="Master_KeyDown" PasswordChanged="Master_PasswordChanged"/>

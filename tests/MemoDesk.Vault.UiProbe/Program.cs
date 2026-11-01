@@ -26,7 +26,7 @@ namespace MemoDesk.Vault.UiProbe;
 
 internal static class Program
 {
-    private const string Master = "MemoDesk sample master 2026!";
+    private const string Master = "Sample2026";
     private static readonly List<object> Checks = [];
     private static string Output = "";
     private static int _exitCode;
@@ -102,15 +102,18 @@ internal static class Program
         lockedScroll.ScrollToTop(); main.Width = 1120; main.Height = 780; await Render();
         var formError = (TextBlock)page.FindName("MasterErrorText");
         var formErrorPanel = (Border)page.FindName("MasterErrorPanel");
+        Check("master-length-hint-matches-policy", Descendants<TextBlock>(page).Any(t => t.Text == MasterPasswordPolicy.Requirements));
         Click(unlock);
         Check("empty-master-is-explained-inline", formErrorPanel.IsVisible && formError.Text == "请输入主密码。" && Equals(master.Tag, "Invalid"));
         master.Password = confirm.Password = "short"; Click(unlock);
-        Check("short-master-shows-count-and-keeps-input", formError.Text.Contains("目前只有 5 个，还差 7 个", StringComparison.Ordinal) && master.Password == "short" && confirm.Password == "short" && !vm.IsBusy && !vm.Vault.Exists);
+        Check("short-master-shows-count-and-keeps-input", formError.Text.Contains("目前只有 5 个，还差 5 个", StringComparison.Ordinal) && master.Password == "short" && confirm.Password == "short" && !vm.IsBusy && !vm.Vault.Exists);
         await Render(); Capture(main, "master-password-validation.png");
         master.Password = confirm.Password = new string('a', 1025); Click(unlock);
         Check("long-master-is-explained-without-truncation", formError.Text.Contains("最多支持 1024", StringComparison.Ordinal) && master.Password.Length == 1025 && !vm.Vault.Exists);
-        master.Password = "abcdefghijkl"; confirm.Password = "different-password"; Click(unlock);
-        Check("confirmation-mismatch-has-specific-feedback", formError.Text.Contains("不一致", StringComparison.Ordinal) && Equals(confirm.Tag, "Invalid") && master.Password == "abcdefghijkl");
+        master.Password = confirm.Password = "123456789"; Click(unlock);
+        Check("nine-character-master-is-rejected", formError.Text.Contains("目前只有 9 个，还差 1 个", StringComparison.Ordinal) && !vm.IsBusy && !vm.Vault.Exists);
+        master.Password = "abcdefghij"; confirm.Password = "different-password"; Click(unlock);
+        Check("confirmation-mismatch-has-specific-feedback", formError.Text.Contains("不一致", StringComparison.Ordinal) && Equals(confirm.Tag, "Invalid") && master.Password == "abcdefghij");
         confirm.Password = master.Password;
         Check("corrected-master-clears-error", formErrorPanel.Visibility == Visibility.Collapsed && master.Tag is null && confirm.Tag is null);
         using (var change = new VaultPasswordWindow("修改主密码", vm, change: true))
@@ -119,7 +122,7 @@ internal static class Program
                 var current = Field<PasswordBox>(prompt, "_current"); var next = Field<PasswordBox>(prompt, "_password"); var repeated = Field<PasswordBox>(prompt, "_confirm");
                 current.Password = Master; next.Password = repeated.Password = "short"; Click(Button(prompt, "确认"));
                 var error = (TextBlock)typeof(VaultDialogWindow).GetField("Error", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(prompt)!;
-                Check("change-master-explains-short-password", prompt.IsVisible && error.Text.Contains("还差 7 个", StringComparison.Ordinal) && next.Password == "short");
+                Check("change-master-explains-short-password", prompt.IsVisible && error.Text.Contains("还差 5 个", StringComparison.Ordinal) && next.Password == "short");
                 next.Password = repeated.Password = new string('a', 1025); Click(Button(prompt, "确认"));
                 Check("change-master-does-not-truncate-long-input", next.Password.Length == 1025 && error.Text.Contains("最多支持 1024", StringComparison.Ordinal));
                 next.Password = "abcdefghijkl"; repeated.Password = "different-password"; Click(Button(prompt, "确认"));

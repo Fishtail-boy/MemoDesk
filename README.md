@@ -54,7 +54,7 @@ MemoDesk 把常用操作缩短为 **快捷键 → 一句话 → 回车**。内�
 
 ## 快速开始
 
-可从 [v0.10.2-preview 测试发行版](https://github.com/Fishtail-boy/MemoDesk/releases/tag/v0.10.2-preview) 下载 Windows x64 压缩包。完整解压后运行 `MemoDesk.App.exe`，无需另装 .NET；更新前从托盘退出旧版本。测试范围与限制见[发行说明](docs/releases/v0.10.2-preview.md)。
+可从 [v0.10.3-preview 测试发行版](https://github.com/Fishtail-boy/MemoDesk/releases/tag/v0.10.3-preview) 下载 Windows x64 压缩包。完整解压后运行 `MemoDesk.App.exe`，无需另装 .NET；更新前从托盘退出旧版本。测试范围与限制见[发行说明](docs/releases/v0.10.3-preview.md)。
 
 如需从源码构建，建议使用 Windows 11 x64 和 [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)；`global.json` 固定 .NET 10 分支并允许后续功能版本。
 
@@ -77,7 +77,7 @@ dotnet run --project src/MemoDesk.App -c Release
 
 ### 使用密码库
 
-进入顶部“密码库”，设置 12–1024 字符的主密码，即可新建账号、生成密码、分类收藏和搜索。支持中文和空格，不要求特定字符组合；格式错误会在输入框附近显示具体原因，并保留输入。`Ctrl+Alt+P` 打开快捷检索；Enter 复制密码，Ctrl+Enter 复制用户名，Esc 关闭。组合键和 1 / 5 / 15 分钟自动锁定时间可在密码库的“安全设置”修改。
+进入顶部“密码库”，设置 10–1024 字符的主密码，即可新建账号、生成密码、分类收藏和搜索。支持中文和空格，不要求特定字符组合；格式错误会在输入框附近显示具体原因，并保留输入。`Ctrl+Alt+P` 打开快捷检索；Enter 复制密码，Ctrl+Enter 复制用户名，Esc 关闭。组合键和 1 / 5 / 15 分钟自动锁定时间可在密码库的“安全设置”修改。
 
 密码库不提供主密码找回。请通过“导出加密备份”保存 `.memovault` 文件，并保管好对应主密码；修改主密码后，旧备份仍需要旧密码。恢复在校验完成后替换整库，原库另存一份加密数据库快照。
 
@@ -147,11 +147,11 @@ docs/screenshots/             使用示例数据的界面截图
 
 ## 验证状态
 
-当前版本为 **0.10.2-preview 预览版**。2026-11-01 在本机 Windows 完成：
+当前版本为 **0.10.3-preview 预览版**。2026-11-01 在本机 Windows 完成：
 
 - Release 编译：0 警告、0 错误。
-- 单元与数据库集成测试：**257 项通过**，其中 Core 104、Infrastructure 107、Vault 46。新增恢复其他库后的备份、失败重试、部分失败和按库保留验证。
-- 密码库实际 WPF 验收：本轮 **38 项通过**，新增生成器标准复制命令、选区复制、复制失败反馈和复制中锁定检查，并回归主密码提示、账号操作、导入、检索、恢复及锁定；本轮使用替身剪贴板。
+- 单元与数据库集成测试：**261 项通过**，其中 Core 104、Infrastructure 107、Vault 50。新增主密码 9/10/11 字符边界、10 字符建库、重开及修改口令验证。
+- 密码库实际 WPF 验收：本轮 **40 项通过**，使用 10 字符主密码验证建库、解锁和备份恢复，检查 9 字符拒绝及界面提示与规则一致，并回归安全复制和锁定等流程；本轮使用替身剪贴板。
 - 本次 3 项 review 问题的修复与证据见[修复记录](docs/password-vault/review-fixes-2026-11-01.md)。
 
 此前已完成的验证（本轮未重复运行）：

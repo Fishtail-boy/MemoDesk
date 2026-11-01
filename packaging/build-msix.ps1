@@ -11,7 +11,7 @@
 param(
     [string]$Configuration = 'Release',
     [string]$Runtime = 'win-x64',
-    [string]$Version = '0.10.2.0',
+    [string]$Version = '0.10.3.0',
     [string]$CertificateThumbprint
 )
 

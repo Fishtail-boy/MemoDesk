@@ -3,9 +3,9 @@ namespace MemoDesk.Vault.Core;
 /// <summary>创建/修改主密码的共同规则；校验信息只包含长度，不包含密码内容。</summary>
 public static class MasterPasswordPolicy
 {
-    public const int MinimumLength = 12;
+    public const int MinimumLength = 10;
     public const int MaximumLength = 1024;
-    public const string Requirements = "12–1024 个字符，支持中文和空格；不要求特定字符组合。";
+    public const string Requirements = "10–1024 个字符，支持中文和空格；不要求特定字符组合。";
 
     public static string? GetError(string? password, bool creating)
     {

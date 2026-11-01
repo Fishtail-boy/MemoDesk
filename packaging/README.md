@@ -2,7 +2,7 @@
 
 M0 阶段目标：验证 WPF 应用能以稳定应用身份（Package Identity / AUMID）打包、安装和启动，为 M5 的 Windows 通知打基础。
 
-产物：`artifacts/msix/MemoDesk_<版本>_win-x64.msix`（默认 0.10.2.0）。
+产物：`artifacts/msix/MemoDesk_<版本>_win-x64.msix`（默认 0.10.3.0）。
 
 ## 前置条件（一次性）
 
@@ -29,7 +29,7 @@ cd packaging
 ## 安装与启动
 
 ```powershell
-Add-AppxPackage -Path ..\artifacts\msix\MemoDesk_0.10.2.0_win-x64.msix
+Add-AppxPackage -Path ..\artifacts\msix\MemoDesk_0.10.3.0_win-x64.msix
 ```
 
 开始菜单中会出现“备忘助手”。也可以用 PowerShell 以 AUMID 启动（M5 通知激活会用到）：
