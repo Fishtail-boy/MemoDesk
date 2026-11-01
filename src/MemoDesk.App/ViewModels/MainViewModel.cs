@@ -34,6 +34,7 @@ public partial class MainViewModel : ObservableObject
     private readonly MemosViewModel _memos;
     private readonly SearchViewModel _search;
     private readonly SettingsViewModel _settings;
+    private readonly VaultViewModel? _vault;
 
     public MainViewModel(
         TodayViewModel today,
@@ -43,7 +44,8 @@ public partial class MainViewModel : ObservableObject
         WorkLogsViewModel workLogs,
         MemosViewModel memos,
         SearchViewModel search,
-        SettingsViewModel settings)
+        SettingsViewModel settings,
+        VaultViewModel? vault = null)
     {
         _today = today;
         _drafts = drafts;
@@ -53,10 +55,12 @@ public partial class MainViewModel : ObservableObject
         _memos = memos;
         _search = search;
         _settings = settings;
+        _vault = vault;
 
         Navigation = new[]
         {
             new NavItemViewModel("memos", "备忘"),
+            new NavItemViewModel("vault", "密码库"),
             new NavItemViewModel("worklogs", "工作记录"),
             new NavItemViewModel("reminders", "提醒"),
             new NavItemViewModel("settings", "设置"),
@@ -87,6 +91,7 @@ public partial class MainViewModel : ObservableObject
 
     public void NavigateTo(string key)
     {
+        if (CurrentKey == "vault" && key != "vault") _vault?.ClearVisibleDetails();
         if (CurrentKey == "drafts" && key != "drafts")
         {
             _drafts.PersistEdits();
@@ -95,6 +100,10 @@ public partial class MainViewModel : ObservableObject
         object page;
         switch (key)
         {
+            case "vault" when _vault is not null:
+                _vault.Refresh();
+                page = _vault;
+                break;
             case "drafts":
                 _drafts.Refresh();
                 page = _drafts;
@@ -138,6 +147,8 @@ public partial class MainViewModel : ObservableObject
     {
         switch (CurrentKey)
         {
+            case "vault":
+                break; // 备忘后台刷新不能重置密码库选择或延长会话。
             case "drafts":
                 _drafts.Refresh();
                 break;

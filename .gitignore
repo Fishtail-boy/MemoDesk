@@ -38,6 +38,11 @@ Thumbs.db
 *.db-wal
 *.sqlite
 *.sqlite3
+*.memovault
+*.memovault.tmp-*
+*.db.create-*
+*.db.snapshot-*
+*.db.restore-*
 *.log
 *.trx
 *.p12

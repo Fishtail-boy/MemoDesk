@@ -64,6 +64,22 @@ public sealed class AppSettings
         set => SetString(KeyHotkey, value);
     }
 
+    public string VaultHotkey
+    {
+        get => GetString("vault_hotkey") ?? "Ctrl+Alt+P";
+        set => SetString("vault_hotkey", value);
+    }
+
+    public int VaultIdleMinutes
+    {
+        get => int.TryParse(GetString("vault_idle_minutes"), out var minutes) && minutes is 1 or 5 or 15 ? minutes : 5;
+        set
+        {
+            if (value is not (1 or 5 or 15)) throw new ArgumentOutOfRangeException(nameof(value));
+            SetString("vault_idle_minutes", value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+    }
+
     public string ApiBaseUrl
     {
         get => GetString(KeyApiBaseUrl) ?? DefaultApiBaseUrl;

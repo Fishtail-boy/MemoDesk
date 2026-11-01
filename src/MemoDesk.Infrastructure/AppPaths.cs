@@ -22,6 +22,8 @@ public sealed class AppPaths
     /// <summary>滚动日志目录。</summary>
     public string LogDirectory => Path.Combine(RootDirectory, "logs");
 
+    public string VaultDatabasePath => Path.Combine(RootDirectory, "vault", "vault.db");
+
     public static AppPaths ForCurrentUser() =>
         new(Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

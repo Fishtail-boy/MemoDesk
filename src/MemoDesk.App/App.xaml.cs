@@ -29,6 +29,9 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Events;
+using MemoDesk.Vault.Core;
+using MemoDesk.Vault.Infrastructure;
+using MemoDesk.Platform.Windows.Security;
 
 namespace MemoDesk.App;
 
@@ -46,6 +49,9 @@ public partial class App : Application
     private ReminderWakeService? _reminderWake;
     private MemoWidgetWindow? _widget;
     private MainViewModel? _mainViewModel;
+    private VaultLockCoordinator? _vaultLocks;
+    private VaultHotkeyManager? _vaultHotkeys;
+    private VaultQuickWindow? _vaultQuickWindow;
     private StartupMode _startupMode = StartupMode.Normal;
     private ReminderNotificationAction? _pendingOpenAction;
     private bool _hostStarted;
@@ -114,6 +120,7 @@ public partial class App : Application
             ConfigureMainWindow();
             ConfigureTray();
             ConfigureHotkey();
+            ConfigureVault();
             ConfigureQuickCapture();
             ConfigureParsing();
             ConfigureReminders();
@@ -148,6 +155,8 @@ public partial class App : Application
     {
         try
         {
+            _vaultLocks?.Dispose(); _vaultLocks = null;
+            _vaultHotkeys?.Dispose(); _vaultHotkeys = null;
             _reminderTimer?.Stop();
             _reminderWake?.Dispose();
             _reminderWake = null;
@@ -221,9 +230,10 @@ public partial class App : Application
         }
     }
 
-    private static IHost BuildHost()
+    private static IHost BuildHost(AppPaths? isolatedPaths = null, ISecureClipboard? isolatedClipboard = null)
     {
-        var paths = AppPaths.ForCurrentUser();
+        // Optional explicit paths/clipboard are used by the isolated Windows UI acceptance host.
+        var paths = isolatedPaths ?? AppPaths.ForCurrentUser();
         paths.EnsureDirectories();
 
         Log.Logger = new LoggerConfiguration()
@@ -252,6 +262,12 @@ public partial class App : Application
                 services.AddSingleton<ISettingsStore, SqliteSettingsStore>();
                 services.AddSingleton<ISecretProtector, DpapiSecretProtector>();
                 services.AddSingleton<AppSettings>();
+                services.AddSingleton<IVaultService>(provider => new VaultService(provider.GetRequiredService<AppPaths>().VaultDatabasePath));
+                if (isolatedClipboard is null) services.AddSingleton<ISecureClipboard, SecureClipboard>();
+                else services.AddSingleton(isolatedClipboard);
+                services.AddSingleton<VaultLockCoordinator>();
+                services.AddSingleton<VaultHotkeyManager>();
+                services.AddSingleton<VaultViewModel>();
 
                 services.AddSingleton<ICaptureRepository, SqliteCaptureRepository>();
                 services.AddSingleton<IMemoCaptureStore, SqliteMemoCaptureStore>();
@@ -324,6 +340,8 @@ public partial class App : Application
         _tray.SettingsRequested += (_, _) => Dispatcher.InvokeAsync(() => ShowMainWindow("settings"));
         _tray.ToggleWidgetRequested += (_, _) => Dispatcher.InvokeAsync(() => _widget?.ToggleVisibility());
         _tray.ExitRequested += (_, _) => Dispatcher.InvokeAsync(ExitApplication);
+        _tray.VaultRequested += (_, _) => Dispatcher.InvokeAsync(() => ShowMainWindow("vault"));
+        _tray.VaultLockRequested += (_, _) => Dispatcher.InvokeAsync(() => _vaultLocks?.Lock());
 
         var hotkeyStatus = _host!.Services.GetRequiredService<HotkeyStatus>();
         _tray.SetHotkeyText(hotkeyStatus.DisplayText);
@@ -357,6 +375,7 @@ public partial class App : Application
         var coordinator = _host.Services.GetRequiredService<MemoParseCoordinator>();
         var today = _host.Services.GetRequiredService<TodayViewModel>();
         var memos = _host.Services.GetRequiredService<MemosViewModel>();
+        window.VaultRequested += () => ShowMainWindow("vault");
 
         today.QuickCaptureRequested += () => Dispatcher.InvokeAsync(ShowQuickCapture);
         memos.QuickCaptureRequested += () => Dispatcher.InvokeAsync(ShowQuickCapture);
@@ -372,6 +391,25 @@ public partial class App : Application
             _reminderWake?.Wake();
             coordinator.Notify(capture.Id);
         };
+    }
+
+    private void ConfigureVault()
+    {
+        _vaultLocks = _host!.Services.GetRequiredService<VaultLockCoordinator>();
+        _vaultLocks.Start();
+        _vaultLocks.Attach(_host.Services.GetRequiredService<MainWindow>());
+        _vaultHotkeys = _host.Services.GetRequiredService<VaultHotkeyManager>();
+        _vaultHotkeys.Requested += () => Dispatcher.InvokeAsync(() =>
+        {
+            var model = _host.Services.GetRequiredService<VaultViewModel>();
+            if (model.IsBusy) return;
+            if (!model.Vault.Exists) { ShowMainWindow("vault"); return; }
+            if (_vaultQuickWindow?.IsVisible == true) { _vaultQuickWindow.Activate(); return; }
+            _vaultQuickWindow = new VaultQuickWindow(model);
+            _vaultQuickWindow.Closed += (_, _) => _vaultQuickWindow = null;
+            _vaultQuickWindow.Show();
+        });
+        _vaultHotkeys.Apply(_vaultHotkeys.Gesture);
     }
 
     private void ConfigureParsing()
@@ -557,6 +595,7 @@ public partial class App : Application
 
     private void ShowQuickCapture()
     {
+        if (_vaultHotkeys?.Recording == true) return;
         if (_host is null)
         {
             return;
@@ -629,6 +668,7 @@ public partial class App : Application
         // 关闭主窗口仅隐藏，进程、托盘、快捷键与后台任务继续常驻（设计 2.6）。
         if (sender is Window window)
         {
+            _vaultLocks?.Lock();
             e.Cancel = true;
             window.Hide();
         }
@@ -642,6 +682,7 @@ public partial class App : Application
         }
 
         _isExiting = true;
+        _vaultLocks?.Lock();
         Shutdown();
     }
 

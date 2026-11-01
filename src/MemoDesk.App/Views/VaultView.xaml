@@ -1,0 +1,121 @@
+<UserControl x:Class="MemoDesk.App.Views.VaultView"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Loaded="View_Loaded" Unloaded="View_Unloaded" PreviewMouseDown="Activity" PreviewKeyDown="Activity">
+ <UserControl.Resources>
+  <Style TargetType="PasswordBox"><Setter Property="Padding" Value="10,8"/><Setter Property="FontSize" Value="16"/>
+   <Setter Property="BorderBrush" Value="{DynamicResource RuleBrush}"/><Setter Property="BorderThickness" Value="1"/>
+   <Style.Triggers><Trigger Property="Tag" Value="Invalid"><Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}"/><Setter Property="BorderThickness" Value="2"/></Trigger></Style.Triggers>
+  </Style>
+  <Style x:Key="VaultListItem" TargetType="ListBoxItem">
+   <Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Margin" Value="0,2"/>
+   <Setter Property="Foreground" Value="{DynamicResource BodyBrush}"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem">
+    <Border x:Name="Surface" CornerRadius="7" Padding="8,8" BorderThickness="1" BorderBrush="Transparent" Background="Transparent"><ContentPresenter/></Border>
+    <ControlTemplate.Triggers>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="{DynamicResource PaperBrush}"/></Trigger>
+     <Trigger Property="IsSelected" Value="True"><Setter TargetName="Surface" Property="Background" Value="{DynamicResource AccentSoftBrush}"/><Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource RuleBrush}"/></Trigger>
+    </ControlTemplate.Triggers>
+   </ControlTemplate></Setter.Value></Setter>
+  </Style>
+ </UserControl.Resources>
+ <Grid Margin="22,18">
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <DockPanel>
+   <StackPanel DockPanel.Dock="Left"><TextBlock Text="密码库" Style="{StaticResource PageTitle}"/>
+    <TextBlock Text="账号随手存，凭据只留在本机。" Style="{StaticResource PageSubtitle}"/></StackPanel>
+   <Button Content="锁定" HorizontalAlignment="Right" VerticalAlignment="Top" Style="{StaticResource GhostButton}" Click="Lock_Click"
+    Visibility="{Binding IsUnlocked, Converter={StaticResource BoolToVisible}}"/>
+  </DockPanel>
+  <ProgressBar Grid.Row="1" Height="3" Margin="0,12,0,8" IsIndeterminate="True" Visibility="{Binding IsBusy,Converter={StaticResource BoolToVisible}}"/>
+  <Grid Grid.Row="2" x:Name="LockedPanel" Visibility="{Binding IsUnlocked,Converter={StaticResource InverseBoolToVisible}}">
+   <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+   <StackPanel MaxWidth="450" VerticalAlignment="Center" Margin="24">
+    <TextBlock Text="你的私人保险库" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource InkBrush}"/>
+    <TextBlock Text="输入主密码以访问账号。主密码不会被保存，也没有找回入口。" TextWrapping="Wrap" Style="{StaticResource PageSubtitle}" Margin="0,10,0,24"/>
+    <TextBlock Text="主密码" Style="{StaticResource SectionTitle}" Margin="0,0,0,8"/>
+    <PasswordBox x:Name="MasterBox" KeyDown="Master_KeyDown" PasswordChanged="Master_PasswordChanged"/>
+    <TextBlock Text="12–1024 个字符，支持中文和空格；不要求特定字符组合。" Style="{StaticResource MetaText}" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="{Binding IsNew,Converter={StaticResource BoolToVisible}}"/>
+    <StackPanel Visibility="{Binding IsNew,Converter={StaticResource BoolToVisible}}" Margin="0,14,0,0">
+     <TextBlock Text="确认主密码" Style="{StaticResource MetaText}" Margin="0,0,0,8"/>
+     <PasswordBox x:Name="ConfirmMasterBox" KeyDown="Master_KeyDown" PasswordChanged="Master_PasswordChanged"/>
+    </StackPanel>
+    <Border x:Name="MasterErrorPanel" Visibility="Collapsed" Background="{DynamicResource WarnSoftBrush}" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,12,0,0">
+     <TextBlock x:Name="MasterErrorText" Foreground="{DynamicResource DangerBrush}" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive"/>
+    </Border>
+    <Button x:Name="UnlockButton" Content="{Binding UnlockLabel}" Style="{StaticResource PrimaryButton}" Margin="0,20,0,10" Padding="16,10" Click="Unlock_Click"/>
+    <TextBlock Text="忘记主密码时，加密备份也无法解密。建议使用容易记住的长口令。" Style="{StaticResource MetaText}" TextWrapping="Wrap" Margin="0,0,0,16"/>
+    <Button Content="从加密备份恢复" Style="{StaticResource LinkButton}" HorizontalAlignment="Left" Click="RestoreBackup_Click"/>
+   </StackPanel>
+   </ScrollViewer>
+  </Grid>
+  <Grid Grid.Row="2" Visibility="{Binding IsUnlocked,Converter={StaticResource BoolToVisible}}" Margin="0,18,0,0">
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <DockPanel Margin="0,0,0,16">
+    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+     <Button x:Name="NewEntryButton" Content="新建账号" Style="{StaticResource PrimaryButton}" Click="New_Click" Margin="12,0,0,0"/>
+     <Button Content="生成密码" Style="{StaticResource GhostButton}" Click="Generate_Click" Margin="8,0,0,0"/>
+    </StackPanel>
+    <Grid><TextBox x:Name="SearchBox" Text="{Binding Query,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FieldBox}" ToolTip="搜索名称、用户名、网址或标签" VerticalContentAlignment="Center"/>
+     <TextBlock Text="搜索账号、用户名、网址或标签" Margin="12,0" VerticalAlignment="Center" Foreground="{DynamicResource FaintBrush}" IsHitTestVisible="False" Visibility="{Binding Query.Length,Converter={StaticResource ZeroToVisible}}"/>
+    </Grid>
+   </DockPanel>
+   <Grid Grid.Row="1">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="16"/><ColumnDefinition Width="260"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <StackPanel><TextBlock Text="分类" Style="{StaticResource MetaText}" Margin="4,0,0,10"/>
+     <ListBox ItemsSource="{Binding Filters}" SelectedItem="{Binding Filter}" BorderThickness="0" Background="Transparent" FontSize="13" ItemContainerStyle="{StaticResource VaultListItem}"/>
+    </StackPanel>
+    <Grid Grid.Column="2"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+     <TextBlock Text="名称 / 用户名" Style="{StaticResource MetaText}" Margin="10,0,0,10"/>
+     <ListBox x:Name="EntryList" Grid.Row="1" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedEntry}" Background="Transparent" BorderBrush="{DynamicResource RuleBrush}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ItemContainerStyle="{StaticResource VaultListItem}">
+      <ListBox.ItemTemplate><DataTemplate><StackPanel Margin="2,4">
+       <TextBlock Text="{Binding Title}" Foreground="{DynamicResource InkBrush}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+       <TextBlock Text="{Binding UserName}" Style="{StaticResource MetaText}" TextTrimming="CharacterEllipsis" Margin="0,5,0,0"/>
+      </StackPanel></DataTemplate></ListBox.ItemTemplate>
+     </ListBox>
+    </Grid>
+    <Border Grid.Column="4" Style="{StaticResource CardBorder}" Padding="18">
+     <Grid>
+      <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <TextBlock Text="选择账号查看详情，或新建一个账号。" TextWrapping="Wrap" Style="{StaticResource PageSubtitle}" VerticalAlignment="Center" HorizontalAlignment="Center" Visibility="{Binding HasSelection,Converter={StaticResource InverseBoolToVisible}}"/>
+      <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding HasSelection,Converter={StaticResource BoolToVisible}}">
+       <StackPanel>
+        <TextBlock Text="{Binding SelectedEntry.Title}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource InkBrush}" TextWrapping="Wrap"/>
+        <TextBlock Text="{Binding SelectedEntry.Category}" Style="{StaticResource MetaText}" Margin="0,7,0,20"/>
+        <TextBlock Text="用户名" Style="{StaticResource MetaText}"/>
+        <DockPanel Margin="0,5,0,14"><Button DockPanel.Dock="Right" Content="复制" Style="{StaticResource LinkButton}" Click="CopyUser_Click"/>
+         <TextBlock Text="{Binding SelectedEntry.UserName}" Foreground="{DynamicResource BodyBrush}" TextWrapping="Wrap" Margin="0,0,10,0"/></DockPanel>
+        <TextBlock Text="密码" Style="{StaticResource MetaText}"/>
+        <WrapPanel Margin="0,6,0,12"><Button Content="复制密码" Style="{StaticResource GhostButton}" Click="CopyPassword_Click"/>
+         <Button Content="显示 10 秒" Style="{StaticResource LinkButton}" Click="Reveal_Click" Margin="12,0,0,0"/></WrapPanel>
+        <TextBlock x:Name="RevealedPassword" Text="••••••••••••" FontFamily="Consolas" TextWrapping="Wrap" Margin="0,0,0,16" Foreground="{DynamicResource BodyBrush}"/>
+        <TextBlock Text="网址" Style="{StaticResource MetaText}"/>
+        <Button Content="{Binding SelectedEntry.Url}" Style="{StaticResource LinkButton}" Click="OpenUrl_Click" HorizontalAlignment="Left" MaxWidth="300" Margin="0,6,0,16"/>
+        <TextBlock Text="{Binding SelectedEntry.Tags}" Style="{StaticResource MetaText}" TextWrapping="Wrap" Margin="0,0,0,14"/>
+        <Button Content="查看保密备注（10 秒）" Style="{StaticResource LinkButton}" Click="RevealNotes_Click" HorizontalAlignment="Left"/>
+        <TextBlock x:Name="RevealedNotes" TextWrapping="Wrap" Foreground="{DynamicResource BodyBrush}" Margin="0,7,0,12"/>
+       </StackPanel>
+      </ScrollViewer>
+      <WrapPanel Grid.Row="1" Margin="0,14,0,0" Visibility="{Binding HasSelection,Converter={StaticResource BoolToVisible}}">
+       <Button Content="编辑" Style="{StaticResource GhostButton}" Click="Edit_Click" Visibility="{Binding SelectedEntry.IsDeleted,Converter={StaticResource InverseBoolToVisible}}"/>
+       <Button Content="删除" Style="{StaticResource GhostButton}" Click="Delete_Click" Margin="8,0,0,0" Visibility="{Binding SelectedEntry.IsDeleted,Converter={StaticResource InverseBoolToVisible}}"/>
+       <Button Content="恢复" Style="{StaticResource LinkButton}" Click="RestoreEntry_Click" Visibility="{Binding SelectedEntry.IsDeleted,Converter={StaticResource BoolToVisible}}"/>
+       <Button Content="彻底删除" Style="{StaticResource LinkButton}" Click="Purge_Click" Margin="12,0,0,0" Visibility="{Binding SelectedEntry.IsDeleted,Converter={StaticResource BoolToVisible}}"/>
+      </WrapPanel>
+     </Grid>
+    </Border>
+   </Grid>
+   <WrapPanel Grid.Row="2" Margin="0,18,0,0">
+    <Button Content="导入 CSV" Style="{StaticResource LinkButton}" Click="Import_Click"/>
+    <Button Content="导出加密备份" Style="{StaticResource LinkButton}" Click="Backup_Click" Margin="18,0,0,0"/>
+    <Button Content="恢复备份" Style="{StaticResource LinkButton}" Click="RestoreBackup_Click" Margin="18,0,0,0"/>
+    <Button Content="修改主密码" Style="{StaticResource LinkButton}" Click="ChangePassword_Click" Margin="18,0,0,0"/>
+    <Button Content="安全设置" Style="{StaticResource LinkButton}" Click="Settings_Click" Margin="18,0,0,0"/>
+   </WrapPanel>
+  </Grid>
+  <StackPanel Grid.Row="3" Margin="0,14,0,0">
+   <TextBlock Text="{Binding Status}" Foreground="{DynamicResource BodyBrush}" TextWrapping="Wrap"/>
+   <TextBlock Text="{Binding BackupStatus}" Style="{StaticResource MetaText}" TextWrapping="Wrap" Margin="0,5,0,0" Visibility="{Binding IsUnlocked,Converter={StaticResource BoolToVisible}}"/>
+  </StackPanel>
+ </Grid>
+</UserControl>

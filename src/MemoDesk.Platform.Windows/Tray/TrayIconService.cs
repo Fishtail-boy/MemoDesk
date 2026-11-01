@@ -37,6 +37,12 @@ public sealed class TrayIconService : IDisposable
         _menu.Items.Add(_quickCaptureItem);
         _menu.Items.Add(showItem);
         _menu.Items.Add(_widgetItem);
+        var vaultItem = new Forms.ToolStripMenuItem("打开密码库");
+        vaultItem.Click += (_, _) => VaultRequested?.Invoke(this, EventArgs.Empty);
+        var lockItem = new Forms.ToolStripMenuItem("锁定密码库");
+        lockItem.Click += (_, _) => VaultLockRequested?.Invoke(this, EventArgs.Empty);
+        _menu.Items.Add(vaultItem);
+        _menu.Items.Add(lockItem);
         _menu.Items.Add(settingsItem);
         _menu.Items.Add(new Forms.ToolStripSeparator());
         _menu.Items.Add(exitItem);
@@ -67,6 +73,8 @@ public sealed class TrayIconService : IDisposable
     public event EventHandler? ToggleWidgetRequested;
 
     public event EventHandler? ExitRequested;
+    public event EventHandler? VaultRequested;
+    public event EventHandler? VaultLockRequested;
 
     public void SetHotkeyText(string gesture) =>
         _quickCaptureItem.Text = string.IsNullOrWhiteSpace(gesture) ? "记一条" : $"记一条（{gesture}）";

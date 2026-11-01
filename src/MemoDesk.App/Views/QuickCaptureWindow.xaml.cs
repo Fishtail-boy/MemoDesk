@@ -62,6 +62,14 @@ public partial class QuickCaptureWindow : Window
 
     /// <summary>一条原文成功落盘后触发（UI 线程）。</summary>
     public event Action<Capture>? Captured;
+    public event Action? VaultRequested;
+
+    private void OpenVault_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isSubmitting) return;
+        Cancel();
+        VaultRequested?.Invoke();
+    }
 
     /// <summary>在光标所在显示器上显示并聚焦输入框；重复唤起时只复位焦点。</summary>
     public void ShowForCapture()

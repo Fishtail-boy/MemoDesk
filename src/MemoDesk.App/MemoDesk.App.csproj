@@ -34,6 +34,13 @@
     <ProjectReference Include="..\MemoDesk.Core\MemoDesk.Core.csproj" />
     <ProjectReference Include="..\MemoDesk.Infrastructure\MemoDesk.Infrastructure.csproj" />
     <ProjectReference Include="..\MemoDesk.Platform.Windows\MemoDesk.Platform.Windows.csproj" />
+    <ProjectReference Include="..\MemoDesk.Vault.Core\MemoDesk.Vault.Core.csproj" />
+    <ProjectReference Include="..\MemoDesk.Vault.Infrastructure\MemoDesk.Vault.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\third-party\LockerIt-LICENSE.txt" Link="ThirdParty\LockerIt-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\THIRD-PARTY-NOTICES.md" Link="ThirdParty\THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

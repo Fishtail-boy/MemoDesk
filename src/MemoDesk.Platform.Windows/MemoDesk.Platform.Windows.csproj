@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MemoDesk.Core\MemoDesk.Core.csproj" />
+    <ProjectReference Include="..\MemoDesk.Vault.Core\MemoDesk.Vault.Core.csproj" />
   </ItemGroup>
 
 </Project>

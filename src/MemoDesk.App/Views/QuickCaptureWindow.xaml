@@ -66,6 +66,8 @@
                            Foreground="{DynamicResource FaintBrush}"
                            HorizontalAlignment="Right" />
             </Grid>
+            <Button Content="账号和密码请使用密码库" Style="{StaticResource LinkButton}"
+                    HorizontalAlignment="Left" Margin="0,10,0,0" Click="OpenVault_Click" />
         </StackPanel>
     </Border>
 </Window>

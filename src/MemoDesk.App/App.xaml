@@ -642,5 +642,8 @@
         <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
             <views:SettingsView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:VaultViewModel}">
+            <views:VaultView />
+        </DataTemplate>
     </Application.Resources>
 </Application>
