@@ -134,17 +134,35 @@ internal static class Program
         Check("create-clears-password-inputs", master.Password.Length == 0 && confirm.Password.Length == 0);
         await Dialog<VaultEditWindow>(app, () => Click((Button)page.FindName("NewEntryButton")), async edit =>
         {
+            Check("editor-focuses-name", Field<TextBox>(edit, "_title").IsKeyboardFocused);
+            Click(Button(edit, "保存账号"));
+            Check("editor-explains-missing-name", edit.IsVisible && Descendants<TextBlock>(edit).Any(t => t.Text.Contains("请填写账号名称", StringComparison.Ordinal)) && !vm.IsBusy);
+            var category = Field<ComboBox>(edit, "_category");
+            category.IsDropDownOpen = true; await Render();
+            Check("editor-category-dropdown", category.IsDropDownOpen && category.Items.Contains("工作") && category.Items.Contains("个人"));
+            category.SelectedItem = "工作"; category.IsDropDownOpen = false;
+            Check("editor-selects-category", category.Text == "工作");
             Field<TextBox>(edit, "_title").Text = "GitHub · 示例账号";
+            await Render(); Capture(edit, "editor-compact.png");
             Field<TextBox>(edit, "_user").Text = "developer@example.invalid";
             Field<PasswordBox>(edit, "_password").Password = "Synthetic-UI-secret-2026!";
             Field<TextBox>(edit, "_url").Text = "https://github.com";
-            Field<TextBox>(edit, "_category").Text = "工作";
+            category.Text = "开发工具";
+            Descendants<Expander>(edit).Single().IsExpanded = true;
             Field<TextBox>(edit, "_notes").Text = "这是隔离验收用的合成记录。";
             await Render(); Capture(edit, "editor.png");
             Click(Button(edit, "保存账号")); await Wait(() => !edit.IsVisible);
         });
         await Wait(() => !vm.IsBusy);
         Check("production-editor-save", vm.Rows.Count == 1);
+        Check("editor-saves-custom-category", vm.Rows.Single().Category == "开发工具");
+        await Dialog<VaultEditWindow>(app, () => new VaultEditWindow(vm, vm.Rows.Single()) { Owner = main }.ShowDialog(), edit =>
+        {
+            var category = Field<ComboBox>(edit, "_category");
+            Check("editor-reuses-custom-category", category.Items.Contains("开发工具") && category.Text == "开发工具");
+            Check("editor-expands-existing-notes", Descendants<Expander>(edit).Single().IsExpanded);
+            Click(Button(edit, "取消")); return Task.CompletedTask;
+        });
         using (var d = new VaultEntryDraft { Title = "工作邮箱 · 示例", UserName = "mail@example.invalid", Password = "Synthetic-mail-2026!", Category = "工作" }) vm.Vault.Save(d);
         using (var d = new VaultEntryDraft { Title = "内网 VPN · 示例", UserName = "sample-user", Password = "Synthetic-vpn-2026!", Category = "个人" }) vm.Vault.Save(d);
         vm.Refresh(); await Wait(() => !vm.IsBusy);
@@ -168,10 +186,20 @@ internal static class Program
         Check("minimize-locks-vault", !vm.Vault.IsUnlocked); main.WindowState = WindowState.Normal; main.Activate();
         await Unlock();
         var quick = new VaultQuickWindow(vm); quick.Show(); await Render();
+        Capture(quick, "quick-search.png");
+        var quickQuery = Field<TextBox>(quick, "_query"); var quickRows = Field<ListBox>(quick, "_rows");
+        PressKey(quickQuery, Key.Down); Check("quick-keyboard-down-selects-next", quickRows.SelectedIndex == 1 && quickQuery.IsKeyboardFocused);
+        PressKey(quickQuery, Key.Up); Check("quick-keyboard-up-selects-previous", quickRows.SelectedIndex == 0);
+        Field<TextBox>(quick, "_query").Text = "no-synthetic-match";
+        Check("quick-empty-state-disables-copy", !Button(quick, "复制密码").IsEnabled && !Button(quick, "复制用户名").IsEnabled && Descendants<TextBlock>(quick).Any(t => t.IsVisible && t.Text.Contains("没有找到账号", StringComparison.Ordinal)));
         Field<TextBox>(quick, "_query").Text = "GitHub";
-        Click(Button(quick, "复制密码"));
+        Check("quick-search-selects-first-result", Field<ListBox>(quick, "_rows").SelectedIndex == 0 && Button(quick, "复制密码").IsEnabled);
+        PressKey(quickQuery, Key.Enter);
         Check("quick-search-copies-selected-secret", clipboard.Value == "Synthetic-UI-secret-2026!" && !quick.IsVisible);
         vm.Locks.Lock(); Check("lock-clears-owned-clipboard", clipboard.Value.Length == 0);
+        var lockedQuick = new VaultQuickWindow(vm); lockedQuick.Show(); await Render(); Capture(lockedQuick, "quick-locked.png");
+        Check("quick-locked-hides-search", !Field<TextBox>(lockedQuick, "_query").IsVisible && Field<PasswordBox>(lockedQuick, "_master").IsVisible);
+        lockedQuick.Close();
         await Unlock();
         var generator = new VaultGeneratorWindow(vm); generator.Show(); await Render();
         var result = Field<TextBox>(generator, "_result");
@@ -293,6 +321,8 @@ internal static class Program
     }
     private static async Task Render() { await Dispatcher.CurrentDispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); await Task.Delay(60); }
     private static void Click(Button button) => button.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+    private static void PressKey(UIElement target, Key key) => target.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice,
+        PresentationSource.FromVisual(target), Environment.TickCount, key) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
     private static Button Button(DependencyObject root, string label) => Descendants<Button>(root).First(b => b.Content as string == label);
     private static T Field<T>(object target, string field) => (T)target.GetType().GetField(field, BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(target)!;
     private static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject

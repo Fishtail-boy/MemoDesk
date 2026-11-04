@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using MemoDesk.App.ViewModels;
 using MemoDesk.Platform.Windows.Hotkeys;
 using MemoDesk.Platform.Windows.Windowing;
+using MemoDesk.Platform.Windows.Input;
 using MemoDesk.Vault.Core;
 
 namespace MemoDesk.App.Views;
@@ -72,7 +73,8 @@ public class VaultDialogWindow : Window
     protected PasswordBox PasswordField(string label, string value = "", int maxLength = 65536)
     {
         Note(label);
-        var box = new PasswordBox { Password = value, Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 0, 0, 12), MaxLength = maxLength };
+        var box = new PasswordBox { Password = value, Margin = new Thickness(0, 0, 0, 12), MaxLength = maxLength };
+        box.SetResourceReference(StyleProperty, "VaultPasswordField");
         box.SetResourceReference(BorderBrushProperty, "RuleBrush"); Body.Children.Add(box); ClearOnClose(box.Clear); return box;
     }
     protected Button ActionButton(string text, RoutedEventHandler handler, bool primary = false)
@@ -90,39 +92,88 @@ public class VaultDialogWindow : Window
 
 public sealed class VaultEditWindow : VaultDialogWindow
 {
-    private readonly TextBox _title, _user, _url, _category, _tags, _notes;
+    private readonly TextBox _title, _user, _url, _tags, _notes;
+    private readonly ComboBox _category;
     private readonly PasswordBox _password;
+    private readonly Button _save;
     private readonly CheckBox _favorite = new() { Content = "收藏这个账号", Margin = new Thickness(0, 8, 0, 8) };
     private readonly VaultEntrySummary? _entry;
-    public VaultEditWindow(VaultViewModel model, VaultEntrySummary? entry = null) : base(model, entry is null ? "新建账号" : "编辑账号", 500, 760)
+    public VaultEditWindow(VaultViewModel model, VaultEntrySummary? entry = null) : base(model, entry is null ? "新建账号" : "编辑账号", 580, 620)
     {
         _entry = entry;
         using var secret = entry is null ? null : model.Vault.ReadSecret(entry.Id, entry.RowVersion);
         _title = Field("名称 *", entry?.Title ?? ""); _user = Field("用户名", entry?.UserName ?? "");
         _password = PasswordField("密码", secret?.Password ?? "");
-        ActionButton("生成 24 位随机密码", (_, _) => _password.Password = PasswordGenerator.Generate());
-        _url = Field("网址", entry?.Url ?? ""); _category = Field("分类（可直接输入新分类）", entry?.Category ?? "个人");
+        _url = Field("网址", entry?.Url ?? "");
+        var categories = new[] { "个人", "工作" }.Concat(model.Vault.List().Select(r => r.Category))
+            .Append(entry?.Category ?? "个人").Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().ToArray();
+        _category = new ComboBox { ItemsSource = categories, IsEditable = true, IsTextSearchEnabled = false,
+            Text = entry?.Category ?? (model.Filter is not ("全部" or "收藏" or "回收站") ? model.Filter : "个人"),
+            Margin = new Thickness(0, 0, 0, 10), ToolTip = "选择已有分类，也可输入新分类" };
+        ClearOnClose(() => { _category.Text = ""; _category.ItemsSource = null; });
         _tags = Field("标签", entry?.Tags ?? ""); _notes = Field("保密备注", secret?.Notes ?? "", multiline: true);
+        Body.Children.Clear();
+        Heading(entry is null ? "添加一个账号" : "编辑账号");
+        Note("填写名称和登录信息，按 Ctrl+Enter 保存。");
+        Body.Children.Add(Labelled("名称 *", _title));
+        Body.Children.Add(Labelled("用户名", _user));
+        var passwordRow = new DockPanel { LastChildFill = true };
+        var generate = ActionButton("生成密码", (_, _) => { _password.Password = PasswordGenerator.Generate(); _password.Focus(); });
+        Body.Children.Remove(generate); generate.Margin = new Thickness(8, 0, 0, 12);
+        generate.ToolTip = "生成 24 位随机密码"; DockPanel.SetDock(generate, Dock.Right);
+        passwordRow.Children.Add(generate); passwordRow.Children.Add(_password);
+        Body.Children.Add(Labelled("密码", passwordRow));
+        var pair = new Grid(); pair.ColumnDefinitions.Add(new ColumnDefinition()); pair.ColumnDefinitions.Add(new ColumnDefinition());
+        var website = Labelled("网址", _url); website.Margin = new Thickness(0, 0, 8, 0);
+        var category = Labelled("分类 · 可选或输入", _category); category.Margin = new Thickness(8, 0, 0, 0);
+        Grid.SetColumn(category, 1); pair.Children.Add(website); pair.Children.Add(category); Body.Children.Add(pair);
         _favorite.IsChecked = entry?.Favorite ?? false; Body.Children.Add(_favorite);
-        Note("点击保存后生效；自动锁定会丢弃未保存的修改。");
-        FooterButton("保存账号", Save_Click); Footer.Children.Add(Error);
+        var details = new StackPanel(); details.Children.Add(Labelled("标签", _tags)); details.Children.Add(Labelled("保密备注", _notes));
+        var more = new Expander { Header = "更多信息 · 标签、保密备注", Content = details, Margin = new Thickness(0, 10, 0, 0),
+            IsExpanded = !string.IsNullOrEmpty(entry?.Tags) || !string.IsNullOrEmpty(secret?.Notes) };
+        more.Expanded += (_, _) => Height = 780; more.Collapsed += (_, _) => Height = 620;
+        if (more.IsExpanded) Height = 780;
+        Body.Children.Add(more);
+        Footer.Children.Add(Error);
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        var cancel = ActionButton("取消", (_, _) => Close()); Body.Children.Remove(cancel); cancel.Margin = new Thickness(0, 8, 8, 0);
+        _save = ActionButton("保存账号", Save_Click, primary: true); Body.Children.Remove(_save);
+        actions.Children.Add(cancel); actions.Children.Add(_save); Footer.Children.Add(actions); Footer.Visibility = Visibility.Visible;
+        _title.TextChanged += (_, _) => { Error.Text = ""; _title.SetResourceReference(BorderBrushProperty, "RuleBrush"); };
+        Loaded += (_, _) => { _title.Focus(); _title.SelectAll(); };
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.Control && !ImeComposition.IsComposing(this))
+            { e.Handled = true; Save_Click(this, e); }
+        };
+    }
+    private static StackPanel Labelled(string label, UIElement field)
+    {
+        var panel = new StackPanel();
+        var caption = new TextBlock { Text = label, Margin = new Thickness(0, 0, 0, 6) };
+        caption.SetResourceReference(StyleProperty, "MetaText"); panel.Children.Add(caption); panel.Children.Add(field); return panel;
     }
     private async void Save_Click(object sender, RoutedEventArgs e)
     {
         if (Revoked || Model.IsBusy) return;
+        if (string.IsNullOrWhiteSpace(_title.Text))
+        {
+            Error.Text = "请填写账号名称，例如：工作邮箱。";
+            _title.SetResourceReference(BorderBrushProperty, "DangerBrush"); _title.Focus(); _title.BringIntoView(); return;
+        }
         using var draft = new VaultEntryDraft
         {
             Id = _entry?.Id ?? Guid.NewGuid(), ExpectedVersion = _entry?.RowVersion ?? 0,
-            Title = _title.Text, UserName = _user.Text, Password = _password.Password, Url = _url.Text,
-            Category = _category.Text, Tags = _tags.Text, Notes = _notes.Text, Favorite = _favorite.IsChecked == true
+            Title = _title.Text.Trim(), UserName = _user.Text, Password = _password.Password, Url = _url.Text.Trim(),
+            Category = _category.Text.Trim(), Tags = _tags.Text, Notes = _notes.Text, Favorite = _favorite.IsChecked == true
         };
-        Body.IsEnabled = false;
+        Body.IsEnabled = false; _save.IsEnabled = false; _save.Content = "正在保存…"; Error.Text = "";
         try
         {
             var saved = await Model.RunAsync(() => Model.Vault.Save(draft), "账号已保存。");
             if (saved && !Revoked && IsVisible) Close(); else if (!Revoked) Error.Text = Model.Status;
         }
-        finally { Body.IsEnabled = true; }
+        finally { Body.IsEnabled = true; _save.IsEnabled = true; _save.Content = "保存账号"; }
     }
 }
 

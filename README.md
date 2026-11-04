@@ -54,7 +54,7 @@ MemoDesk 把常用操作缩短为 **快捷键 → 一句话 → 回车**。内�
 
 ## 快速开始
 
-可从 [v0.10.3-preview 测试发行版](https://github.com/Fishtail-boy/MemoDesk/releases/tag/v0.10.3-preview) 下载 Windows x64 压缩包。完整解压后运行 `MemoDesk.App.exe`，无需另装 .NET；更新前从托盘退出旧版本。测试范围与限制见[发行说明](docs/releases/v0.10.3-preview.md)。
+可从 [v0.10.4-preview 测试发行版](https://github.com/Fishtail-boy/MemoDesk/releases/tag/v0.10.4-preview) 下载 Windows x64 压缩包。完整解压后运行 `MemoDesk.App.exe`，无需另装 .NET；更新前从托盘退出旧版本。测试范围与限制见[发行说明](docs/releases/v0.10.4-preview.md)。
 
 如需从源码构建，建议使用 Windows 11 x64 和 [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)；`global.json` 固定 .NET 10 分支并允许后续功能版本。
 
@@ -202,3 +202,7 @@ dotnet run --project docs/implementation-results/2026-10-25-experience-upgrade/M
 本仓库暂未指定项目许可证；依赖组件的许可证见对应 NuGet 包及其说明。
 
 密码库的 AES-GCM 适配参考并修改了 LockerIt 的 MIT 代码，来源和完整版权声明见 [第三方说明](THIRD-PARTY-NOTICES.md)；这些声明也会随可运行版本发布。
+
+## 0.10.4 密码库体验更新
+
+快捷检索改用紧凑列表，支持方向键选择和 Enter 复制；新增账号采用精简表单，分类可下拉选择或输入新名称，支持 Ctrl+Enter 保存。ZIP 版沿用 `%LOCALAPPDATA%\MemoDesk`，数据格式未变。更新与回退步骤见 [无痛更新说明](packaging/UPDATE.md)。

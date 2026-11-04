@@ -353,6 +353,35 @@
             </Setter>
         </Style>
 
+        <Style x:Key="VaultPasswordField" TargetType="PasswordBox">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="Background" Value="{DynamicResource SheetBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource SealBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource RuleBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="PasswordBox">
+                        <Border x:Name="FieldBorder" CornerRadius="8" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="FieldBorder" Property="BorderBrush" Value="{DynamicResource SealBrush}" />
+                            </Trigger>
+                            <Trigger Property="BorderThickness" Value="2">
+                                <Setter TargetName="FieldBorder" Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.6" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- 日期、时间和下拉的统一外观；保留原生控件的键盘与可访问性 -->
         <Style TargetType="DatePicker">
             <Setter Property="Height" Value="36" />
