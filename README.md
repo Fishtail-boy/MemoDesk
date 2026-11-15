@@ -62,7 +62,7 @@ Daozai 原生版由发布目录下的 Island 子目录提供。它沿用 Daozai 
 
 ## 快速开始
 
-可从 [v0.10.4-preview 测试发行版](https://github.com/Fishtail-boy/MemoDesk/releases/tag/v0.10.4-preview) 下载 Windows x64 压缩包。完整解压后运行 `MemoDesk.App.exe`，无需另装 .NET；更新前从托盘退出旧版本。测试范围与限制见[发行说明](docs/releases/v0.10.4-preview.md)。
+从 [最新候选版](https://github.com/Fishtail-boy/MemoDesk/releases/tag/v0.11.0-rc.2) 下载 Windows x64 安装包，按向导安装后从开始菜单启动。更新前请从托盘退出旧版本；安装包无需另装 .NET，尚未签名。
 
 如需从源码构建，建议使用 Windows 11 x64 和 [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)；`global.json` 固定 .NET 10 分支并允许后续功能版本。
 
@@ -124,7 +124,7 @@ dotnet publish src/MemoDesk.App/MemoDesk.App.csproj `
   -o artifacts/MemoDesk-win-x64
 ```
 
-运行输出目录中的 `MemoDesk.App.exe`，整个目录需要一起保留。自包含发布包含 .NET 运行库，Windows App SDK 的原生依赖也会随构建整理到输出目录。
+运行输出目录中的 `MemoDesk.exe`，整个目录需要一起保留。自包含发布包含 .NET 运行库，Windows App SDK 的原生依赖也会随构建整理到输出目录。
 
 更新时先从托盘退出旧版，再启动新版。单实例机制会把第二次启动转交给已运行的进程，因此仅关闭旧版主窗口不会切换到新程序。
 

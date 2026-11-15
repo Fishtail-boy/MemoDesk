@@ -5,7 +5,7 @@
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <UseWPF>true</UseWPF>
     <RootNamespace>MemoDesk.App</RootNamespace>
-    <AssemblyName>MemoDesk.App</AssemblyName>
+    <AssemblyName>MemoDesk</AssemblyName>
     <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
     <ApplicationIcon>Assets\memo.ico</ApplicationIcon>
     <!-- 允许在非 Windows 环境交叉编译（CI/开发沙盒），不影响 Windows 上的正常构建。 -->

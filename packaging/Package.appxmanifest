@@ -35,7 +35,7 @@
 
   <Applications>
     <Application Id="App"
-                 Executable="MemoDesk.App.exe"
+                 Executable="MemoDesk.exe"
                  EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
           DisplayName="备忘"
@@ -50,7 +50,7 @@
         </desktop:Extension>
         <com:Extension Category="windows.comServer">
           <com:ComServer>
-            <com:ExeServer Executable="MemoDesk.App.exe"
+            <com:ExeServer Executable="MemoDesk.exe"
                            Arguments="----AppNotificationActivated:"
                            DisplayName="备忘">
               <com:Class Id="7D2A9E14-3C5B-4F8A-9B6D-2E1C8A4F7C30" />

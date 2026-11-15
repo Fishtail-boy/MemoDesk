@@ -58,3 +58,13 @@ Get-AppxPackage MemoDesk | Remove-AppxPackage
 - 即时系统通知使用 Windows App SDK 注册，支持打包与未打包应用；2026-10-25 已在 Windows 11 未打包测试宿主验证注册和请求交接。系统计划通知仍依赖可用身份；通知按钮、下拉、冷启动和 Windows 10 需要分别实测。注册或明确发送失败才允许按设置回落卡片，未知交接不自动重发。
 - `Directory.Build.targets` 从当前架构的官方 Runtime MSIX 提取 `Microsoft.WindowsAppRuntime.Insights.Resource.dll`，补齐 SDK 2.5.1 组件自包含产物遗漏的文件。正常 build、publish、MSIX 载荷与独立探针输出均需要保留它；缺少此文件会使通知初始化失败。
 - 计划通知使用 UWP `ScheduledToastNotification`；登记、撤销和启动对账已接入。明确的 5 分钟以内相对提醒由应用单调计时，到点调用系统即时通知，避免两种计时通道重复投递。
+
+## Windows 安装包
+
+在 Windows x64 上准备包含桌面岛的自包含发布目录（可使用 `./packaging/build-portable.ps1 -BuildDaozaiIsland`）。安装 Inno Setup 6 后，运行：
+
+```powershell
+./packaging/build-installer.ps1 -StageDirectory <完整发布目录> -Compiler <ISCC.exe路径>
+```
+
+安装包输出到 `artifacts/release`。它按当前用户安装到 `%LOCALAPPDATA%\Programs\MemoDesk`，创建开始菜单快捷方式；卸载时保留备忘与密码库数据。默认不含代码签名。

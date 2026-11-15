@@ -48,7 +48,7 @@ internal static class Program
             xml.Root.Element(ns + "Application.Resources")!.Elements().Select(e => new XElement(e)));
         var text = dictionary.ToString();
         foreach (var name in new[] { "Converters", "ViewModels", "Views" })
-            text = text.Replace("clr-namespace:MemoDesk.App." + name, "clr-namespace:MemoDesk.App." + name + ";assembly=MemoDesk.App", StringComparison.Ordinal);
+            text = text.Replace("clr-namespace:MemoDesk.App." + name, "clr-namespace:MemoDesk.App." + name + ";assembly=MemoDesk", StringComparison.Ordinal);
         app.Resources = (ResourceDictionary)XamlReader.Parse(text);
         AppTheme.Start();
         var clipboard = new ProbeClipboard();

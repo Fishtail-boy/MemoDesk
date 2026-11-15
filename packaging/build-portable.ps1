@@ -36,7 +36,7 @@ try {
     if ($BuildDaozaiIsland) {
         & (Join-Path $root 'integrations/daozai/build.ps1') -Output (Join-Path $stage 'Island')
     }
-    foreach ($required in @('MemoDesk.App.exe','coreclr.dll','e_sqlite3.dll','Microsoft.WindowsAppRuntime.Insights.Resource.dll','ThirdParty\THIRD-PARTY-NOTICES.md')) {
+    foreach ($required in @('MemoDesk.exe','coreclr.dll','e_sqlite3.dll','Microsoft.WindowsAppRuntime.Insights.Resource.dll','ThirdParty\THIRD-PARTY-NOTICES.md')) {
         if (-not (Test-Path -LiteralPath (Join-Path $stage $required))) { throw "Missing release dependency: $required" }
     }
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'PORTABLE-README.md') -Destination (Join-Path $stage '使用说明.md')

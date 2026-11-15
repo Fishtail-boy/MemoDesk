@@ -7,6 +7,6 @@
     <Deterministic>true</Deterministic>
     <Product>备忘</Product>
     <Company>MemoDesk</Company>
-    <Version>0.11.0-rc.1</Version>
+    <Version>0.11.0-rc.2</Version>
   </PropertyGroup>
 </Project>
