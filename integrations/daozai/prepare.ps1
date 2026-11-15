@@ -14,7 +14,13 @@ function Change-Source([string]$File, [string]$Before, [string]$After) {
 }
 
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'memodesk.rs') -Destination (Join-Path $Source 'src/memodesk.rs')
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'memodesk_ui_tests.rs') -Destination (Join-Path $Source 'src/memodesk_ui_tests.rs')
 Change-Source 'lib.rs' 'pub mod model;' "pub mod model;`npub mod memodesk;"
+Change-Source 'ui_tests.rs' 'mod doubao;' @'
+mod doubao;
+#[path = "memodesk_ui_tests.rs"]
+mod memodesk;
+'@
 
 Change-Source 'model.rs' 'pub struct TodoItem {' @'
 pub struct TodoItem {
@@ -53,6 +59,68 @@ Change-Source 'app.rs' '            todos: model::TodoList::load(),' @'
 Change-Source 'app.rs' '            4 => ("待办", "清单", theme::GREEN),' @'
             4 if self.memo_bridge.is_some() => ("备忘", "清单", theme::GREEN),
             4 => ("待办", "清单", theme::GREEN),
+'@
+Change-Source 'app.rs' '    dots: [Spring; 9],' '    dots: [Spring; PAGE_NAMES.len() + 1],'
+Change-Source 'app.rs' '        if !self.settings.visible_pages[page] {' '        if !self.module_on(page) {'
+Change-Source 'app.rs' '        if !self.settings.visible_pages[self.page] {' '        if !self.module_on(self.page) {'
+Change-Source 'app.rs' 'if page == self.page || !self.settings.visible_pages[page]' 'if page == self.page || !self.module_on(page)'
+Change-Source 'app.rs' 'pub fn module_on(&self,page:usize)->bool {self.settings.visible_pages.get(page).copied().unwrap_or(false)}' @'
+pub fn module_on(&self, page: usize) -> bool {
+        if page == crate::memodesk::ASSETS_PAGE { return self.memo_bridge.is_some(); }
+        self.settings.visible_pages.get(page).copied().unwrap_or(false)
+    }
+'@
+Change-Source 'app.rs' @'
+    fn navigate_page(&mut self,next:bool) {
+        let position=self.settings.page_order.iter().position(|page|*page==self.page).unwrap();
+        for offset in 1..=PAGE_NAMES.len() {
+            let page=self.settings.page_order[(position+if next {offset}else{PAGE_NAMES.len()-offset})%PAGE_NAMES.len()];
+            if self.settings.visible_pages[page] {
+                self.go(page,if next {1.0}else{-1.0});
+                break;
+            }
+        }
+    }
+'@ @'
+    fn visible_page_order(&self) -> Vec<usize> {
+        let mut pages = Vec::with_capacity(self.dots.len());
+        for page in self.settings.page_order {
+            if self.module_on(page) { pages.push(page); }
+            if page == TODO_PAGE && self.module_on(crate::memodesk::ASSETS_PAGE) {
+                pages.push(crate::memodesk::ASSETS_PAGE);
+            }
+        }
+        pages
+    }
+
+    pub(crate) fn navigate_page(&mut self, next: bool) {
+        let pages = self.visible_page_order();
+        let Some(position) = pages.iter().position(|&page| page == self.page) else { return };
+        let offset = if next { 1 } else { pages.len() - 1 };
+        self.go(pages[(position + offset) % pages.len()], if next { 1.0 } else { -1.0 });
+    }
+'@
+Change-Source 'app.rs' 'PAGE_SETTINGS_TABS[page]' 'PAGE_SETTINGS_TABS.get(page).copied().unwrap_or(18)'
+Change-Source 'app.rs' 'PAGE_SETTINGS_TABS[self.page]' 'PAGE_SETTINGS_TABS.get(self.page).copied().unwrap_or(18)'
+Change-Source 'app.rs' 'PAGE_NAMES[self.page]' 'crate::memodesk::page_name(self.page)'
+Change-Source 'app.rs' 'PAGE_NAMES[i]' 'crate::memodesk::page_name(i)'
+Change-Source 'app.rs' 'let pages: Vec<_>=self.settings.page_order.iter().copied().filter(|page|self.settings.visible_pages[*page]).collect();' 'let pages = self.visible_page_order();'
+Change-Source 'app.rs' 'for i in pages {' 'for &i in &pages {'
+Change-Source 'app.rs' 'let position=|page|self.settings.page_order.iter().position(|p|*p==page).unwrap();' 'let position=|page|pages.iter().position(|p|*p==page).unwrap();'
+Change-Source 'app.rs' '            _ => ("岛仔", "设置", theme::WHITE),' @'
+            crate::memodesk::ASSETS_PAGE => ("数字资产", "", theme::CYAN),
+            _ => ("岛仔", "设置", theme::WHITE),
+'@
+Change-Source 'app.rs' '            CALENDAR_PAGE => self.page_calendar(c,env),' @'
+            CALENDAR_PAGE => self.page_calendar(c,env),
+            crate::memodesk::ASSETS_PAGE => self.page_assets(c),
+'@
+Change-Source 'app.rs' '        if (!self.is_editing() || self.todo_choosing) && inside && self.open && self.reveal > 0.95 {' @'
+        let swipe_enabled = inside && self.open && self.reveal > 0.95 && !self.is_editing()
+            && self.position_drag.is_none();
+        if self.memo_swipe(&ctx, self.content_origin(win), self.expanded_height(), swipe_enabled) {
+            self.wheel_delta = 0.0;
+        } else if (!self.is_editing() || self.todo_choosing) && inside && self.open && self.reveal > 0.95 {
 '@
 Change-Source 'app.rs' '            .hint_text(egui::RichText::new("要做点什么？回车保存")' @'
             .hint_text(egui::RichText::new(if self.memo_bridge.is_some() { "记一条备忘，回车保存" } else { "要做点什么？回车保存" })
@@ -142,7 +210,7 @@ Change-Source 'extras.rs' '                for (name,start,end) in SETTINGS_GROU
                 egui::ScrollArea::vertical().id_salt("settings-navigation").show(ui, |ui| {
                 let managed = self.memo_bridge.is_some();
                 for (name,start,end) in (if managed {
-                    vec![("备忘",13,13), ("密码库",14,14), ("工作记录",15,15), ("提醒",16,16), ("备忘设置",17,17)]
+                    vec![("备忘",13,13), ("密码库",14,14), ("数字资产",18,18), ("工作记录",15,15), ("提醒",16,16), ("备忘设置",17,17)]
                 } else { vec![] }).into_iter().chain(SETTINGS_GROUPS.into_iter().filter(|(_,start,_)| !managed || *start != 9)) {
 '@
 Change-Source 'extras.rs' @'
@@ -159,7 +227,7 @@ Change-Source 'extras.rs' @'
 '@
 Change-Source 'extras.rs' '                    if start==9 {ui.add_space((ui.available_height()-38.0).max(0.0));}' '                    if start==9 && self.memo_bridge.is_none() {ui.add_space((ui.available_height()-38.0).max(0.0));}'
 Change-Source 'extras.rs' '                let titles=["常规","音乐与歌词","专注","健康提醒","待办","置物","通知","邮箱","日程","关于","页面管理","AI 额度","天气"];' @'
-                let titles=["常规","音乐与歌词","专注","健康提醒","待办","置物","通知","邮箱","日程","关于","页面管理","AI 额度","天气","备忘","密码库","工作记录","提醒","备忘设置"];
+                let titles=["常规","音乐与歌词","专注","健康提醒","待办","置物","通知","邮箱","日程","关于","页面管理","AI 额度","天气","备忘","密码库","工作记录","提醒","备忘设置","数字资产"];
                 if self.memo_bridge.is_some() && self.settings_tab == 9 { self.settings_tab = 0; }
                 if self.memo_bridge.is_some() && self.settings_tab >= 13 {
                     self.memo_host_ui(ui);
@@ -167,7 +235,7 @@ Change-Source 'extras.rs' '                let titles=["常规","音乐与歌词
                 }
                 self.memo_hide_host();
 '@
-Change-Source 'extras.rs' 'titles[self.settings_tab.min(12)]' 'titles[self.settings_tab.min(17)]'
+Change-Source 'extras.rs' 'titles[self.settings_tab.min(12)]' 'titles[self.settings_tab.min(18)]'
 Change-Source 'extras.rs' '.with_inner_size([690.0,560.0]).with_min_inner_size([600.0,450.0])' '.with_inner_size(if self.memo_bridge.is_some() {[1060.0,680.0]}else{[690.0,560.0]}).with_min_inner_size([600.0,450.0])'
 Change-Source 'extras.rs' '                            if a!=autostart{self.pending.push(Cmd::ToggleAutostart);}' '                            if a!=autostart && self.memo_bridge.is_none(){self.pending.push(Cmd::ToggleAutostart);}'
 

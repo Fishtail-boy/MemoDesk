@@ -34,6 +34,7 @@ public partial class MainViewModel : ObservableObject
     private readonly MemosViewModel _memos;
     private readonly SearchViewModel _search;
     private readonly SettingsViewModel _settings;
+    private readonly DigitalAssetsViewModel _assets;
     private readonly VaultViewModel? _vault;
 
     public MainViewModel(
@@ -45,6 +46,7 @@ public partial class MainViewModel : ObservableObject
         MemosViewModel memos,
         SearchViewModel search,
         SettingsViewModel settings,
+        DigitalAssetsViewModel assets,
         VaultViewModel? vault = null)
     {
         _today = today;
@@ -55,12 +57,14 @@ public partial class MainViewModel : ObservableObject
         _memos = memos;
         _search = search;
         _settings = settings;
+        _assets = assets;
         _vault = vault;
 
         Navigation = new[]
         {
             new NavItemViewModel("memos", "备忘"),
             new NavItemViewModel("vault", "密码库"),
+            new NavItemViewModel("assets", "数字资产"),
             new NavItemViewModel("worklogs", "工作记录"),
             new NavItemViewModel("reminders", "提醒"),
             new NavItemViewModel("settings", "设置"),
@@ -103,6 +107,10 @@ public partial class MainViewModel : ObservableObject
             case "vault" when _vault is not null:
                 _vault.Refresh();
                 page = _vault;
+                break;
+            case "assets":
+                _assets.Refresh();
+                page = _assets;
                 break;
             case "drafts":
                 _drafts.Refresh();
@@ -149,6 +157,8 @@ public partial class MainViewModel : ObservableObject
         {
             case "vault":
                 break; // 备忘后台刷新不能重置密码库选择或延长会话。
+            case "assets":
+                break;
             case "drafts":
                 _drafts.Refresh();
                 break;

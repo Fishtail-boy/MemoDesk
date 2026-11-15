@@ -433,6 +433,7 @@
                                                 <ContentPresenter Grid.Column="0"
                                                                   Margin="10,0,4,0"
                                                                   VerticalAlignment="Center"
+                                                                  TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ComboBox}}"
                                                                   Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}"
                                                                   ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource AncestorType=ComboBox}}"
                                                                   ContentTemplateSelector="{Binding ItemTemplateSelector, RelativeSource={RelativeSource AncestorType=ComboBox}}" />
@@ -737,6 +738,9 @@
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:VaultViewModel}">
             <views:VaultView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:DigitalAssetsViewModel}">
+            <views:DigitalAssetsView />
         </DataTemplate>
     </Application.Resources>
 </Application>

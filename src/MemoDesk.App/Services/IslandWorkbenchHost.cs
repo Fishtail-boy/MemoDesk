@@ -41,7 +41,7 @@ internal sealed class IslandWorkbenchHost : IDisposable
 
     public void Show(int processId, string page, int x, int y, int width, int height, bool dark)
     {
-        if (width < 1 || height < 1 || page is not ("memos" or "vault" or "worklogs" or "reminders" or "settings"))
+        if (width < 1 || height < 1 || page is not ("memos" or "vault" or "assets" or "worklogs" or "reminders" or "settings"))
             return;
         var parent = FindSettingsWindow(processId);
         if (parent == IntPtr.Zero) return;

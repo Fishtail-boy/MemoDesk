@@ -98,6 +98,7 @@
                                     <MenuItem x:Name="WeChatMenuItem" Header="微信任务栏提醒" IsCheckable="True" Click="WeChatToggle_Click" />
                                     <MenuItem x:Name="QuotaMenuItem" Header="自动刷新额度并提示重置" IsCheckable="True" Click="QuotaToggle_Click" />
                                     <Separator />
+                                    <MenuItem Header="数字资产" Tag="assets" Click="OpenMain_Click" />
                                     <MenuItem Header="设置" Tag="settings" Click="OpenMain_Click" />
                                     <MenuItem Header="隐藏桌面岛" Click="Hide_Click" />
                                 </ContextMenu>
@@ -121,7 +122,8 @@
                     <Button Grid.Column="2" Content="›" Style="{StaticResource IslandButton}" VerticalAlignment="Center" Tag="1"
                             AutomationProperties.Name="下一页" Click="PageStep_Click" />
 
-                    <Grid Grid.Column="1" Margin="8,0">
+                    <Grid x:Name="PageBody" Grid.Column="1" Margin="8,0" Background="Transparent"
+                          PreviewMouseLeftButtonDown="PageBody_MouseDown" PreviewMouseLeftButtonUp="PageBody_MouseUp">
                         <Grid x:Name="MemosPanel">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="114" />
@@ -243,15 +245,52 @@
                                 </Border>
                             </StackPanel>
                         </ScrollViewer>
+
+                        <DockPanel x:Name="AssetsPanel" Visibility="Collapsed">
+                            <StackPanel DockPanel.Dock="Top">
+                                <Button Content="管理资产" Style="{StaticResource LinkButton}" Tag="assets" Click="OpenMain_Click"
+                                        HorizontalAlignment="Right" Margin="0,0,0,5" />
+                                <TextBlock x:Name="AssetsStatus" Style="{StaticResource MetaText}" Margin="4,4,4,8"
+                                           Visibility="{Binding Text, RelativeSource={RelativeSource Self}, Converter={StaticResource NonEmptyToVisible}}" />
+                            </StackPanel>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl x:Name="AssetRows">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource CardBorder}" Padding="10,6" Margin="0,0,0,6">
+                                                <StackPanel>
+                                                    <DockPanel>
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding ExpirationText}" Style="{StaticResource NumeralText}" Margin="8,0,0,0" />
+                                                        <TextBlock Text="{Binding Asset.Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Asset.Name}" />
+                                                    </DockPanel>
+                                                    <DockPanel Margin="0,3,0,0">
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding StatusText}" Style="{StaticResource MetaText}" />
+                                                        <TextBlock Text="{Binding Asset.Category}" Style="{StaticResource MetaText}" TextTrimming="CharacterEllipsis" />
+                                                    </DockPanel>
+                                                    <TextBlock Text="{Binding Asset.Description}" TextWrapping="Wrap" Foreground="{DynamicResource BodyBrush}"
+                                                               Visibility="{Binding Asset.Description, Converter={StaticResource NonEmptyToVisible}}" />
+                                                    <Button Style="{StaticResource LinkButton}" Foreground="{DynamicResource CyanBrush}" HorizontalAlignment="Left"
+                                                            Click="OpenAssetLink_Click" ToolTip="{Binding LinkText}"
+                                                            Visibility="{Binding LinkText, Converter={StaticResource NonEmptyToVisible}}">
+                                                        <TextBlock Text="{Binding LinkText}" TextTrimming="CharacterEllipsis" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
                     </Grid>
                 </Grid>
 
-                <UniformGrid x:Name="PageTabs" Grid.Row="2" Columns="4" HorizontalAlignment="Center"
+                <UniformGrid x:Name="PageTabs" Grid.Row="2" Columns="5" HorizontalAlignment="Center"
                              KeyboardNavigation.TabNavigation="Continue">
                     <Button Content="备忘" Tag="0" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
-                    <Button Content="日程" Tag="1" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
-                    <Button Content="消息" Tag="2" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
-                    <Button Content="额度" Tag="3" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
+                    <Button Content="数字资产" Tag="1" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
+                    <Button Content="日程" Tag="2" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
+                    <Button Content="消息" Tag="3" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
+                    <Button Content="额度" Tag="4" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
                 </UniformGrid>
             </Grid>
         </Grid>

@@ -11,7 +11,8 @@
                          TextChanged="TextPart_TextChanged" LostKeyboardFocus="TextPart_LostKeyboardFocus"
                          PreviewKeyDown="TextPart_PreviewKeyDown" />
                 <Button HorizontalAlignment="Right" Width="30" Background="Transparent" BorderThickness="0"
-                        Content="◷" FontSize="18" Focusable="False" ToolTip="选择时间" Click="Open_Click" />
+                        Foreground="{DynamicResource MutedBrush}" Content="◷" FontSize="18" Focusable="False"
+                        ToolTip="选择时间" Click="Open_Click" />
             </Grid>
         </Border>
         <Popup x:Name="TimePopup" PlacementTarget="{Binding ElementName=TextPart}" Placement="Bottom"

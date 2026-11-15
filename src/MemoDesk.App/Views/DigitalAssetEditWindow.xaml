@@ -1,0 +1,53 @@
+<Window x:Class="MemoDesk.App.Views.DigitalAssetEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:MemoDesk.App.Controls"
+        Width="510" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        FontFamily="Microsoft YaHei UI" FontSize="14"
+        Background="{DynamicResource PaperBrush}" Foreground="{DynamicResource InkBrush}">
+    <ScrollViewer MaxHeight="{Binding Source={x:Static SystemParameters.WorkArea}, Path=Height}" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24">
+            <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
+                       Style="{StaticResource PageTitle}" />
+
+            <TextBlock x:Name="NameLabel" Text="名称（必填）" Style="{StaticResource FieldLabel}" Margin="0,18,0,4" />
+            <TextBox x:Name="NameBox" Style="{StaticResource BoxedField}" AutomationProperties.LabeledBy="{Binding ElementName=NameLabel}" />
+
+            <TextBlock x:Name="CategoryLabel" Text="类型（如服务器、账号会员）" Style="{StaticResource FieldLabel}" Margin="0,12,0,4" />
+            <TextBox x:Name="CategoryBox" Style="{StaticResource BoxedField}" AutomationProperties.LabeledBy="{Binding ElementName=CategoryLabel}" />
+
+            <Grid Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="14" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="到期日期（可选）" Style="{StaticResource FieldLabel}" />
+                    <controls:DateField x:Name="ExpirationDateField" AutomationProperties.Name="到期日期" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="到期时刻（可选）" Style="{StaticResource FieldLabel}" />
+                    <controls:TimeField x:Name="ExpirationTimeField" AutomationProperties.Name="到期时刻" />
+                </StackPanel>
+            </Grid>
+
+            <TextBlock x:Name="LinkLabel" Text="链接（http:// 或 https://）" Style="{StaticResource FieldLabel}" Margin="0,12,0,4" />
+            <TextBox x:Name="LinkBox" Style="{StaticResource BoxedField}" AutomationProperties.LabeledBy="{Binding ElementName=LinkLabel}" />
+
+            <TextBlock x:Name="DescriptionLabel" Text="简介" Style="{StaticResource FieldLabel}" Margin="0,12,0,4" />
+            <TextBox x:Name="DescriptionBox" Style="{StaticResource BoxedField}" MinHeight="72" MaxHeight="130"
+                     AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                     AutomationProperties.LabeledBy="{Binding ElementName=DescriptionLabel}" />
+
+            <TextBlock x:Name="ErrorText" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" Margin="0,10,0,0"
+                       Visibility="{Binding Text, RelativeSource={RelativeSource Self}, Converter={StaticResource NonEmptyToVisible}}" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                <Button Content="取消" Style="{StaticResource GhostButton}" IsCancel="True" Margin="0,0,8,0" />
+                <Button Content="保存资产" Style="{StaticResource PrimaryButton}" IsDefault="True" Click="Save_Click" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

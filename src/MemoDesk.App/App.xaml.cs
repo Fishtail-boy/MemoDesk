@@ -295,6 +295,7 @@ public partial class App : Application
                 services.AddSingleton<IMemoApplyStore, SqliteMemoApplyStore>();
                 services.AddSingleton<IItemStore, SqliteItemStore>();
                 services.AddSingleton<IReminderRepository, SqliteReminderRepository>();
+                services.AddSingleton<SqliteDigitalAssetStore>();
 
                 services.AddSingleton<CaptureService>();
                 services.AddSingleton<MemoCaptureService>();
@@ -334,6 +335,7 @@ public partial class App : Application
                 services.AddSingleton<MemosViewModel>();
                 services.AddSingleton<SearchViewModel>();
                 services.AddSingleton<SettingsViewModel>();
+                services.AddSingleton<DigitalAssetsViewModel>();
                 services.AddSingleton<MainViewModel>();
 
                 services.AddSingleton<MainWindow>();

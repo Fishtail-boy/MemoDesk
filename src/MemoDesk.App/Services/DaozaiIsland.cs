@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Windows.Threading;
+using MemoDesk.App.ViewModels;
 using MemoDesk.Core.Capturing;
 using MemoDesk.Core.Domain;
 using MemoDesk.Core.Items;
@@ -12,6 +13,8 @@ using MemoDesk.Core.Time;
 using MemoDesk.Infrastructure;
 using MemoDesk.Infrastructure.Queries;
 using MemoDesk.Infrastructure.Settings;
+using MemoDesk.Infrastructure.Storage;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 
 namespace MemoDesk.App.Services;
@@ -23,6 +26,7 @@ internal sealed class DaozaiIsland : IDisposable
     private readonly AppPaths _paths;
     private readonly AppSettings _settings;
     private readonly ItemQueryService _query;
+    private readonly SqliteDigitalAssetStore _assets;
     private readonly ItemService _items;
     private readonly IReminderRepository _reminders;
     private readonly MemoCaptureService _capture;
@@ -33,11 +37,13 @@ internal sealed class DaozaiIsland : IDisposable
     private CancellationTokenSource? _stop;
 
     public DaozaiIsland(AppPaths paths, AppSettings settings, ItemQueryService query, ItemService items,
-        IReminderRepository reminders, MemoCaptureService capture, TimeProvider clock, ILogger<DaozaiIsland> logger)
+        IReminderRepository reminders, MemoCaptureService capture, TimeProvider clock, ILogger<DaozaiIsland> logger,
+        SqliteDigitalAssetStore assets)
     {
         _paths = paths;
         _settings = settings;
         _query = query;
+        _assets = assets;
         _items = items;
         _reminders = reminders;
         _capture = capture;
@@ -96,6 +102,7 @@ internal sealed class DaozaiIsland : IDisposable
     private async Task ServeAsync(Process process, CancellationToken token)
     {
         IslandRow[]? previousRows = null;
+        IslandAssetRow[]? previousAssets = null;
         try
         {
             while (await process.StandardOutput.ReadLineAsync(token).ConfigureAwait(false) is { } line)
@@ -107,7 +114,7 @@ internal sealed class DaozaiIsland : IDisposable
                     response = request switch
                     {
                         null => new { error = "请求无效。" },
-                        { Op: "list" } => Snapshot(request, ref previousRows),
+                        { Op: "list" } => Snapshot(request, ref previousRows, ref previousAssets),
                         _ => Handle(request),
                     };
                 }
@@ -156,6 +163,12 @@ internal sealed class DaozaiIsland : IDisposable
         {
             _ = _dispatcher.InvokeAsync(() => OpenPage?.Invoke(request.Op));
             return new { };
+        }
+        if (request.Op == "asset-link")
+        {
+            var link = _assets.List().FirstOrDefault(asset => asset.Id == request.Id)?.Link;
+            return link is not null && DigitalAssetLinks.Open(link)
+                ? new { } : new { error = "无法打开资产链接。" };
         }
 
         if (request.Op == "add")
@@ -214,7 +227,7 @@ internal sealed class DaozaiIsland : IDisposable
         return result.IsSuccess ? new { } : new { error = result.Error ?? "备忘已更新，请刷新后重试。" };
     }
 
-    private object Snapshot(IslandRequest request, ref IslandRow[]? previousRows)
+    private object Snapshot(IslandRequest request, ref IslandRow[]? previousRows, ref IslandAssetRow[]? previousAssets)
     {
         var zone = _settings.TimeZone;
         var now = _clock.GetUtcNow();
@@ -229,7 +242,32 @@ internal sealed class DaozaiIsland : IDisposable
         {
             previousRows = items = rows;
         }
-        return new { items, notices, updated };
+        IslandAssetRow[]? assets = null;
+        string? assetError = null;
+        if (request.Assets)
+        {
+            try
+            {
+                var today = BusinessTime.Today(now, zone);
+                var assetRows = _assets.List().Select(asset =>
+                {
+                    var row = new DigitalAssetRow(asset, asset.GetExpirationStatus(now, zone), today);
+                    return new IslandAssetRow(asset.Id, asset.Name, asset.Category, asset.Description, row.LinkText,
+                        row.ExpirationText, row.StatusText, row.Status.ToString());
+                }).ToArray();
+                if (previousAssets is null || !previousAssets.AsSpan().SequenceEqual(assetRows))
+                    previousAssets = assets = assetRows;
+            }
+            catch (SqliteException)
+            {
+                assetError = "读取数字资产失败。";
+            }
+        }
+        else
+        {
+            previousAssets = null;
+        }
+        return new { items, notices, updated, assets, assetError };
     }
 
     private IslandRow ToRow(Item item, TimeZoneInfo zone) => ToRow(item, zone, _reminders.GetActiveForItem(item.Id));
@@ -260,7 +298,9 @@ internal sealed class DaozaiIsland : IDisposable
     public void Dispose() => Stop();
 
     private sealed record IslandRequest(string Op, Guid? Id, int? Version, string? Text, bool SetDue, string? Due,
-        Guid? PlanId, int? PlanVersion, long Since, string? Page, int X, int Y, int Width, int Height, bool Dark);
+        Guid? PlanId, int? PlanVersion, long Since, string? Page, int X, int Y, int Width, int Height, bool Dark, bool Assets);
     private sealed record IslandRow(Guid Id, int Version, string Text, string? DoneOn, string? Due, long? DueAt,
         Guid? PlanId, int? PlanVersion);
+    private sealed record IslandAssetRow(Guid Id, string Name, string Category, string Description, string? Link,
+        string Expiration, string Status, string ExpirationStatus);
 }

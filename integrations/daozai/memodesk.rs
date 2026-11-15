@@ -1,4 +1,6 @@
-use crate::{app::{App, TODO_PAGE, QUOTA_PAGE}, model::TodoItem};
+use crate::{app::{App, PAGE_NAMES, TODO_PAGE, QUOTA_PAGE}, model::TodoItem};
+use crate::paint::{capsule, Card, H};
+use crate::theme::{self, size, W};
 use eframe::egui;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -6,6 +8,12 @@ use std::io::{self, BufRead, Write};
 use std::collections::HashSet;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
+
+pub(crate) const ASSETS_PAGE: usize = PAGE_NAMES.len();
+
+pub(crate) fn page_name(page: usize) -> &'static str {
+    PAGE_NAMES.get(page).copied().unwrap_or("数字资产")
+}
 
 pub fn managed() -> bool {
     static MANAGED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
@@ -38,6 +46,19 @@ impl Memo {
     }
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct IslandAsset {
+    id: String,
+    name: String,
+    category: String,
+    description: String,
+    link: Option<String>,
+    expiration: String,
+    status: String,
+    expiration_status: String,
+}
+
 enum Reply {
     Snapshot(Value),
     Saved(Value, Option<String>),
@@ -53,6 +74,13 @@ pub(crate) struct Bridge {
     reset_checked_at: i64,
     announced_resets: HashSet<(String, String, i64)>,
     rows: Option<Vec<Memo>>,
+    assets: Option<Vec<IslandAsset>>,
+    assets_error: bool,
+    asset_page: usize,
+    swipe_start: Option<egui::Pos2>,
+    horizontal_delta: f32,
+    horizontal_at: f64,
+    horizontal_switched: bool,
     host: Option<(String, i32, i32, i32, i32, bool)>,
     host_sent: Instant,
 }
@@ -89,6 +117,13 @@ impl Bridge {
             sender, receiver, next_poll: Instant::now(), outstanding: false, writes: 0, since: 0,
             reset_checked_at: chrono::Utc::now().timestamp(), announced_resets: HashSet::new(),
             rows: None,
+            assets: None,
+            assets_error: false,
+            asset_page: 0,
+            swipe_start: None,
+            horizontal_delta: 0.0,
+            horizontal_at: 0.0,
+            horizontal_switched: false,
             host: None,
             host_sent: Instant::now(),
         }
@@ -98,6 +133,11 @@ impl Bridge {
         if self.sender.send((request, capture)).is_ok() {
             self.writes += 1;
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_test_assets(&mut self, rows: Value) {
+        self.assets = Some(serde_json::from_value(rows).expect("valid test asset rows"));
     }
 }
 
@@ -118,6 +158,10 @@ impl App {
                     }
                     if let Ok(rows) = serde_json::from_value::<Vec<Memo>>(data["items"].clone()) {
                         bridge.rows = Some(rows);
+                    }
+                    bridge.assets_error = data["assetError"].is_string();
+                    if let Ok(assets) = serde_json::from_value(data["assets"].clone()) {
+                        bridge.assets = Some(assets);
                     }
                 }
                 Reply::Saved(data, capture) => {
@@ -163,11 +207,98 @@ impl App {
         }
         if !bridge.outstanding && Instant::now() >= bridge.next_poll {
             self.memo_quota_tick(&mut bridge);
-            bridge.outstanding = bridge.sender.send((json!({"op":"list","since":bridge.since}), None)).is_ok();
+            let assets = self.page == ASSETS_PAGE && self.open;
+            bridge.outstanding = bridge.sender.send((json!({"op":"list","since":bridge.since,"assets":assets}), None)).is_ok();
             bridge.next_poll = Instant::now() + Duration::from_secs(1);
         }
         ctx.request_repaint_after(Duration::from_secs(1));
         self.memo_bridge = Some(bridge);
+    }
+
+    pub(crate) fn page_assets(&mut self, c: &Card) {
+        let Some(bridge) = self.memo_bridge.as_mut() else { return };
+        let manage = asset_button(c, 305.0, 121.0, 74.0, "assets-manage", "管理资产", true);
+
+        let empty = if bridge.assets_error {
+            "读取资产失败，正在重试。"
+        } else if bridge.assets.is_some() {
+            "还没有数字资产，点击「管理资产」添加。"
+        } else {
+            "正在读取数字资产…"
+        };
+        let assets = bridge.assets.as_deref().unwrap_or_default();
+        if assets.is_empty() {
+            c.text(209.5, 81.0, empty, size::BODY, W::Regular, theme::GRAY, H::Center);
+        }
+
+        const ROWS: usize = 2;
+        let last = assets.len().saturating_sub(1) / ROWS;
+        bridge.asset_page = bridge.asset_page.min(last);
+        let mut open_link = None;
+        for (index, asset) in assets.iter().skip(bridge.asset_page * ROWS).take(ROWS).enumerate() {
+            let y = 33.0 + index as f32 * 44.0;
+            if asset_card(c, y, asset) {
+                open_link = Some(asset.id.clone());
+            }
+        }
+        if last > 0 {
+            let previous = asset_button(c, 40.0, 121.0, 26.0, "assets-prev", "‹", bridge.asset_page > 0);
+            let next = asset_button(c, 105.0, 121.0, 26.0, "assets-next", "›", bridge.asset_page < last);
+            c.text(85.0, 134.0, &format!("{} / {}", bridge.asset_page + 1, last + 1),
+                size::SMALL, W::Regular, theme::GRAY, H::Center);
+            if previous { bridge.asset_page -= 1; }
+            if next { bridge.asset_page += 1; }
+        }
+        if let Some(id) = open_link {
+            bridge.send(json!({"op":"asset-link","id":id}), None);
+        }
+        if manage {
+            self.memo_open("assets");
+        }
+    }
+
+    pub(crate) fn memo_swipe(&mut self, ctx: &egui::Context, origin: egui::Pos2, height: f32, enabled: bool) -> bool {
+        let Some(bridge) = self.memo_bridge.as_mut() else { return false };
+        if !enabled {
+            bridge.swipe_start = None;
+            bridge.horizontal_delta = 0.0;
+            bridge.horizontal_switched = false;
+            return false;
+        }
+
+        let body = egui::Rect::from_min_max(origin + egui::vec2(35.0, 32.0), origin + egui::vec2(384.0, height - 21.0));
+        let (pressed, released, pointer, scroll, now) = ctx.input(|input| (
+            input.pointer.primary_pressed(), input.pointer.primary_released(),
+            input.pointer.interact_pos(), input.raw_scroll_delta, input.time,
+        ));
+        if pressed {
+            bridge.swipe_start = pointer.filter(|point| body.contains(*point));
+        }
+        if released {
+            if let Some((start, end)) = bridge.swipe_start.take().zip(pointer) {
+                let delta = end - start;
+                if delta.x.abs() >= 40.0 && delta.x.abs() > delta.y.abs() * 1.5 {
+                    self.navigate_page(delta.x < 0.0);
+                    return true;
+                }
+            }
+        }
+
+        if scroll.x.abs() > scroll.y.abs() {
+            if now - bridge.horizontal_at >= 0.18 {
+                bridge.horizontal_delta = 0.0;
+                bridge.horizontal_switched = false;
+            }
+            bridge.horizontal_at = now;
+            bridge.horizontal_delta += scroll.x;
+            if !bridge.horizontal_switched && bridge.horizontal_delta.abs() >= 20.0 {
+                let next = bridge.horizontal_delta < 0.0;
+                bridge.horizontal_switched = true;
+                self.navigate_page(next);
+            }
+            return true;
+        }
+        false
     }
 
     fn memo_quota_tick(&mut self, bridge: &mut Bridge) {
@@ -215,8 +346,8 @@ impl App {
         if let Some(pid) = std::env::var("MEMODESK_PARENT_PID").ok().and_then(|value| value.parse::<u32>().ok()) {
             let _ = unsafe { windows::Win32::UI::WindowsAndMessaging::AllowSetForegroundWindow(pid) };
         }
-        if matches!(op, "workbench" | "settings" | "vault") {
-            self.settings_tab = match op { "vault" => 14, "settings" => 17, _ => 13 };
+        if matches!(op, "workbench" | "settings" | "vault" | "assets") {
+            self.settings_tab = match op { "vault" => 14, "settings" => 17, "assets" => 18, _ => 13 };
             self.open_settings();
             return;
         }
@@ -225,7 +356,7 @@ impl App {
 
     pub(crate) fn memo_host_ui(&mut self, ui: &mut egui::Ui) {
         let page = match self.settings_tab {
-            13 => "memos", 14 => "vault", 15 => "worklogs", 16 => "reminders", 17 => "settings",
+            13 => "memos", 14 => "vault", 15 => "worklogs", 16 => "reminders", 17 => "settings", 18 => "assets",
             _ => return,
         };
         let rect = ui.max_rect();
@@ -266,4 +397,41 @@ impl App {
             bridge.send(json!({"op":"add","id":id,"text":text}), Some(text.to_string()));
         }
     }
+}
+
+fn asset_button(c: &Card, x: f32, y: f32, width: f32, id: &'static str, title: &str, enabled: bool) -> bool {
+    let card = if enabled { c.clone() } else { c.faded(0.45).ghost() };
+    let (button, label) = capsule(&card, x, y, width, 18.0, id, theme::BTN, theme::BTN_HOVER);
+    label.text(x + width / 2.0, y + 13.0, title, size::SMALL, W::Regular, theme::WHITE, H::Center);
+    enabled && button.clicked()
+}
+
+fn asset_card(c: &Card, y: f32, asset: &IslandAsset) -> bool {
+    c.fill(40.0, y, 339.0, 41.0, 8.0, theme::CARD);
+    let title = c.fit(&asset.name, size::BODY, W::Semibold, 173.0);
+    c.text(48.0, y + 12.0, &title, size::BODY, W::Semibold, theme::WHITE, H::Left);
+    c.text(371.0, y + 12.0, &asset.expiration, size::SMALL, W::Regular, theme::WHITE, H::Right);
+
+    let description = asset.description.split_whitespace().collect::<Vec<_>>().join(" ");
+    let detail = if description.is_empty() { asset.category.clone() } else { format!("{} · {}", asset.category, description) };
+    let detail = c.fit(&detail, size::SMALL, W::Regular, 320.0);
+    c.text(48.0, y + 24.0, &detail, size::SMALL, W::Regular, theme::GRAY, H::Left);
+    c.hit(40.0, y, 339.0, 26.0, ("asset-detail", &asset.id))
+        .on_hover_text(format!("{} · {}\n{}", asset.name, asset.category, asset.description));
+
+    let status_color = match asset.expiration_status.as_str() {
+        "Expired" => theme::RED_TOP,
+        "DueSoon" => theme::YELLOW,
+        _ => theme::GRAY,
+    };
+    c.text(371.0, y + 36.0, &asset.status, size::SMALL, W::Regular, status_color, H::Right);
+    if let Some(url) = &asset.link {
+        let link = c.fit(url, size::SMALL, W::Regular, 228.0);
+        let response = c.hit(46.0, y + 26.0, 232.0, 14.0, ("asset-link", &asset.id))
+            .on_hover_text(url).on_hover_cursor(egui::CursorIcon::PointingHand);
+        c.text(48.0, y + 36.0, &link, size::SMALL, W::Regular,
+            if response.hovered() { theme::WHITE } else { theme::BLUE }, H::Left);
+        return response.clicked();
+    }
+    false
 }

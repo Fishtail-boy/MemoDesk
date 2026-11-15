@@ -13,14 +13,18 @@ using MemoDesk.Core.Reminders;
 using MemoDesk.Core.Time;
 using MemoDesk.Infrastructure.Queries;
 using MemoDesk.Infrastructure.Settings;
+using MemoDesk.Infrastructure.Storage;
 using MemoDesk.Platform.Windows.Notifications;
 using MemoDesk.Platform.Windows.Windowing;
+using Microsoft.Data.Sqlite;
 
 namespace MemoDesk.App.Views;
 
 public partial class MemoWidgetWindow : Window
 {
-    private static readonly string[] Titles = ["备忘", "日程", "消息", "额度"];
+    private static readonly string[] Titles = ["备忘", "数字资产", "日程", "消息", "额度"];
+    private const int AssetsPage = 1;
+    private const int QuotaPage = 4;
     private readonly ItemQueryService _query;
     private readonly ReminderQueryService? _reminderQuery;
     private readonly ItemService _items;
@@ -28,6 +32,7 @@ public partial class MemoWidgetWindow : Window
     private readonly DialogService _dialogs;
     private readonly TimeProvider _clock;
     private readonly IReminderRepository? _reminders;
+    private readonly SqliteDigitalAssetStore _assets;
     private readonly MonitorLocator _monitors = new();
     private readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _hover = new() { Interval = TimeSpan.FromMilliseconds(200) };
@@ -40,6 +45,7 @@ public partial class MemoWidgetWindow : Window
     private TimeZoneInfo _zone = TimeZoneInfo.Local;
     private DateOnly _currentDate;
     private int _page;
+    private Point? _swipeStart;
     private int _dialogDepth;
     private int _overdue;
     private DateTimeOffset? _nextDue;
@@ -52,9 +58,11 @@ public partial class MemoWidgetWindow : Window
     private DateTimeOffset? _quotaCheckedAt;
     private WeChatFlashListener? _wechat;
     private IReadOnlyList<ReminderOverviewRow> _agenda = [];
+    private DigitalAssetRow[] _assetRows = [];
+    private DateTimeOffset _nextAssetRefresh;
 
     public MemoWidgetWindow(ItemQueryService query, ItemService items, AppSettings settings,
-        DialogService dialogs, TimeProvider clock, IReminderRepository? reminders = null,
+        DialogService dialogs, TimeProvider clock, SqliteDigitalAssetStore assets, IReminderRepository? reminders = null,
         ReminderQueryService? reminderQuery = null)
     {
         _query = query;
@@ -62,6 +70,7 @@ public partial class MemoWidgetWindow : Window
         _settings = settings;
         _dialogs = dialogs;
         _clock = clock;
+        _assets = assets;
         _reminders = reminders;
         _reminderQuery = reminderQuery;
         _state = settings.Widget;
@@ -204,6 +213,8 @@ public partial class MemoWidgetWindow : Window
             if (_nextDue is { } nextDue && now >= nextDue) RefreshOverdue(now);
             RefreshCountdowns(now);
             UpdateCompactStatus();
+            if (_expanded && _page == AssetsPage && now >= _nextAssetRefresh)
+                RefreshAssets(now);
         }
         if (_state.TrackQuota && (_lastQuotaFetch is not { } fetched || now - fetched >= TimeSpan.FromMinutes(5)))
             _ = RefreshQuotaAsync();
@@ -241,6 +252,7 @@ public partial class MemoWidgetWindow : Window
     private void SetExpanded(bool expanded, bool animate)
     {
         _expanded = expanded;
+        _swipeStart = null;
         if (expanded) ShowPage(_page);
         CompactBar.Visibility = expanded ? Visibility.Collapsed : Visibility.Visible;
         ExpandedPanel.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
@@ -351,7 +363,7 @@ public partial class MemoWidgetWindow : Window
     {
         _page = index;
         PanelTitle.Text = Titles[index];
-        FrameworkElement[] pages = [MemosPanel, AgendaPanel, MessagesPanel, QuotaPanel];
+        FrameworkElement[] pages = [MemosPanel, AssetsPanel, AgendaPanel, MessagesPanel, QuotaPanel];
         for (var i = 0; i < pages.Length; i++)
         {
             pages[i].Visibility = i == index ? Visibility.Visible : Visibility.Collapsed;
@@ -360,8 +372,38 @@ public partial class MemoWidgetWindow : Window
             tab.SetResourceReference(BackgroundProperty, i == index ? "AccentSoftBrush" : "PaperBrush");
         }
 
-        if (index == 3 && (_lastQuotaFetch is not { } last || _clock.GetUtcNow() - last >= TimeSpan.FromMinutes(5)))
+        if (index == QuotaPage && (_lastQuotaFetch is not { } last || _clock.GetUtcNow() - last >= TimeSpan.FromMinutes(5)))
             _ = RefreshQuotaAsync();
+        if (index == AssetsPage)
+            RefreshAssets(_clock.GetUtcNow());
+    }
+
+    private void RefreshAssets(DateTimeOffset now)
+    {
+        _nextAssetRefresh = now.AddSeconds(5);
+        try
+        {
+            var zone = _settings.TimeZone;
+            var today = BusinessTime.Today(now, zone);
+            var rows = _assets.List().Select(asset =>
+                new DigitalAssetRow(asset, asset.GetExpirationStatus(now, zone), today)).ToArray();
+            if (!_assetRows.SequenceEqual(rows))
+            {
+                _assetRows = rows;
+                AssetRows.ItemsSource = rows;
+            }
+            AssetsStatus.Text = rows.Length == 0 ? "还没有数字资产。" : string.Empty;
+        }
+        catch (SqliteException)
+        {
+            AssetsStatus.Text = "读取数字资产失败，正在重试。";
+        }
+    }
+
+    private void OpenAssetLink_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: DigitalAssetRow { Asset.Link: { } link } } && !DigitalAssetLinks.Open(link))
+            AssetsStatus.Text = "无法打开资产链接。";
     }
 
     private void PageTab_Click(object sender, RoutedEventArgs e)
@@ -372,7 +414,30 @@ public partial class MemoWidgetWindow : Window
     private void PageStep_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button { Tag: string tag } && int.TryParse(tag, out var delta))
-            ShowPage((_page + delta + Titles.Length) % Titles.Length);
+            StepPage(delta);
+    }
+
+    private void StepPage(int delta) => ShowPage((_page + delta + Titles.Length) % Titles.Length);
+
+    private void PageBody_MouseDown(object sender, MouseButtonEventArgs e) =>
+        _swipeStart = e.GetPosition(PageBody);
+
+    private void PageBody_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        var start = _swipeStart;
+        _swipeStart = null;
+        if (start is null)
+            return;
+
+        var delta = e.GetPosition(PageBody) - start.Value;
+        if (Math.Abs(delta.X) < 40 || Math.Abs(delta.X) <= Math.Abs(delta.Y) * 1.5)
+            return;
+
+        // Buttons may own the press; releasing here cancels their click once a swipe is recognized.
+        if (Mouse.Captured is UIElement captured && PageBody.IsAncestorOf(captured))
+            Mouse.Capture(null);
+        e.Handled = true;
+        StepPage(delta.X < 0 ? 1 : -1);
     }
 
     private void AgendaDate_Changed(object sender, SelectionChangedEventArgs e) => RefreshAgenda();
