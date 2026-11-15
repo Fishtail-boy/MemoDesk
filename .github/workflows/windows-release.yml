@@ -1,0 +1,39 @@
+name: Windows release checks
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build, test and package portable application
+        shell: pwsh
+        run: ./packaging/build-portable.ps1
+      - name: Save package and validation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: MemoDesk-windows-${{ github.run_number }}
+          path: |
+            artifacts/release/*.zip
+            artifacts/release/SHA256SUMS.txt
+            artifacts/release/**/tests/*.trx
+          if-no-files-found: error
+          retention-days: 14

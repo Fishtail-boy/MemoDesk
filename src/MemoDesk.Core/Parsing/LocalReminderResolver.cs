@@ -11,11 +11,18 @@ public static class LocalReminderResolver
 {
     private static readonly Regex Command = new(
         @"^(?:请)?(?<time>.+?(?:之后|以后|后))\s*(?:请)?提醒(?:我)?(?:一下)?\s*(?<content>.+)$",
-        RegexOptions.Compiled, TimeSpan.FromMilliseconds(100));
+        RegexOptions.NonBacktracking, TimeSpan.FromMilliseconds(250));
     private static readonly Regex Ambiguous = new(@"[，,。；;\r\n]|不(?:要|用|必)?(?:再)?提醒|无需提醒|别(?:再)?提醒|叫我",
-        RegexOptions.Compiled, TimeSpan.FromMilliseconds(100));
+        RegexOptions.NonBacktracking, TimeSpan.FromMilliseconds(250));
 
     public static LocalReminderResolution? Resolve(string raw, DateTimeOffset capturedAt, TimeZoneInfo zone)
+    {
+        // Local recognition is optional: it must never prevent the original memo being saved.
+        try { return ResolveCore(raw, capturedAt, zone); }
+        catch (RegexMatchTimeoutException) { return null; }
+    }
+
+    private static LocalReminderResolution? ResolveCore(string raw, DateTimeOffset capturedAt, TimeZoneInfo zone)
     {
         var text = raw.Trim();
         if (text.Length > 2000 || Ambiguous.IsMatch(text)) return null;

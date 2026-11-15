@@ -30,6 +30,7 @@ public class VaultDialogWindow : Window
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         FontFamily = new FontFamily("Microsoft YaHei UI"); FontSize = 13;
         SetResourceReference(BackgroundProperty, "PaperBrush");
+        SetResourceReference(ForegroundProperty, "InkBrush");
         var layout = new Grid(); layout.RowDefinitions.Add(new RowDefinition()); layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         layout.Children.Add(new ScrollViewer { Content = Body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
         Grid.SetRow(Footer, 1); layout.Children.Add(Footer); Content = layout;

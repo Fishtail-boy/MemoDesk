@@ -220,7 +220,7 @@ public sealed class ItemQueryService
             ("$to", SqliteMapping.ToDb(to)));
 
     /// <summary>
-    /// 工作记录投影：备忘录入、完成事件与旧 WorkLog 的发生时间合并展示。
+    /// 工作记录投影：备忘录入与旧 WorkLog 的发生时间合并展示。
     /// 事件使用自身时间筛选；旧 WorkLog 以 work_date/EndDate 与范围重叠判断。
     /// </summary>
     public IReadOnlyList<WorkRecordEntry> GetWorkRecords(
@@ -247,7 +247,7 @@ public sealed class ItemQueryService
                 FROM timeline_events e
                 LEFT JOIN items i ON i.id = e.item_id
                 LEFT JOIN captures c ON c.id = i.capture_id
-                WHERE e.event_type IN ('MemoCaptured', 'ItemCompleted')
+                WHERE e.event_type = 'MemoCaptured'
                   AND e.occurred_at_utc >= $from AND e.occurred_at_utc < $to
                 ORDER BY e.occurred_at_utc ASC, e.id ASC;
                 """;

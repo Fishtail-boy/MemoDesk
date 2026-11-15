@@ -79,7 +79,7 @@ public static class WindowEffects
         }
         var corners = 2;
         DwmSetWindowAttribute(hwnd, 33, ref corners, sizeof(int));
-        var dark = 0;
+        var dark = !SystemParameters.HighContrast && color.R < 128 && color.G < 128 && color.B < 128 ? 1 : 0;
         DwmSetWindowAttribute(hwnd, 20, ref dark, sizeof(int));
     }
     private static bool TransparencyEnabled()

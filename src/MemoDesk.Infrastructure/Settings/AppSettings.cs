@@ -6,7 +6,13 @@ using MemoDesk.Core.Time;
 namespace MemoDesk.Infrastructure.Settings;
 
 public sealed record WidgetState(bool Visible, bool Pinned, double? Left, double? Top, double? Width, double? Height,
-    bool Locked = false, bool Collapsed = false, bool TodayOnly = false);
+    bool Locked = false, bool Collapsed = false, bool TodayOnly = false)
+{
+    public string? Dock { get; init; }
+    public bool KeepOpen { get; init; }
+    public bool WeChatAlerts { get; init; }
+    public bool TrackQuota { get; init; }
+}
 
 /// <summary>全局设置的强类型访问（设计 7.7）。API Key 只以 DPAPI 保护后的形式落库。</summary>
 public sealed class AppSettings
@@ -194,6 +200,24 @@ public sealed class AppSettings
     {
         var value = _store.Get(key);
         return string.IsNullOrEmpty(value) ? null : value;
+    }
+
+    public void SaveConfiguration(string zoneId, string baseUrl, string model, string? newApiKey,
+        IReadOnlyList<SnoozeOption> options, bool systemNotifications, bool fallback, bool widgetVisible)
+    {
+        var zone = BusinessTime.Resolve(zoneId.Trim());
+        if (!ApiEndpoint.TryCreate(baseUrl, out _)) throw new ArgumentException(ApiEndpoint.ValidationMessage);
+        ArgumentException.ThrowIfNullOrWhiteSpace(model);
+        var values = new Dictionary<string, string>
+        {
+            [KeyTimeZone] = zone.Id, [KeyApiBaseUrl] = baseUrl.Trim().TrimEnd('/'), [KeyApiModel] = model.Trim(),
+            [KeySnoozeOptions] = JsonDefaults.Serialize(options),
+            [KeyUseSystemNotifications] = systemNotifications ? "true" : "false",
+            [KeyAllowFallbackNotifications] = fallback ? "true" : "false",
+            [KeyWidget] = JsonDefaults.Serialize(Widget with { Visible = widgetVisible }),
+        };
+        if (!string.IsNullOrWhiteSpace(newApiKey)) values[KeyApiKey] = _protector.Protect(newApiKey.Trim());
+        _store.SetMany(values);
     }
 
     private void SetString(string key, string value) => _store.Set(key, value);

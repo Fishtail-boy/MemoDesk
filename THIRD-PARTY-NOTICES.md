@@ -1,5 +1,13 @@
 # Third-party notices
 
+## Daozai
+
+The optional native desktop island builds
+[Fishtail-boy/daozai](https://github.com/Fishtail-boy/daozai/tree/6eb33732f9b2150e02eef1b1f824b0c087a2c5f2)
+with the MemoDesk adapter in `integrations/daozai`.
+Copyright (c) 2026 小唐的Token and Daozai contributors, MIT License.
+The original license and third-party asset notices accompany the island executable.
+
 ## LockerIt
 
 The AES-GCM payload adapter in `MemoDesk.Vault.Infrastructure/VaultCrypto.cs`

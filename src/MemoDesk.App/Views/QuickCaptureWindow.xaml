@@ -5,7 +5,7 @@
         Width="560"
         SizeToContent="Height"
         WindowStyle="None"
-        AllowsTransparency="False"
+        AllowsTransparency="True"
         Background="Transparent"
         ShowInTaskbar="False"
         Topmost="True"
@@ -14,14 +14,10 @@
         FontFamily="Microsoft YaHei UI"
         FontSize="14">
     <Border Margin="0"
-            Background="{DynamicResource SheetBrush}"
-            CornerRadius="16"
+            Background="{DynamicResource PaperBrush}"
+            CornerRadius="24"
             BorderBrush="{DynamicResource RuleBrush}"
             BorderThickness="1">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="22" ShadowDepth="3" Direction="270" Opacity="0.12" Color="#447290" />
-        </Border.Effect>
-
         <StackPanel Margin="20,14,20,12">
             <Grid Margin="0,0,0,6">
                 <TextBlock Text="记一条" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" />
@@ -66,7 +62,7 @@
                            Foreground="{DynamicResource FaintBrush}"
                            HorizontalAlignment="Right" />
             </Grid>
-            <Button Content="账号和密码请使用密码库" Style="{StaticResource LinkButton}"
+            <Button Content="打开密码库" Style="{StaticResource LinkButton}"
                     HorizontalAlignment="Left" Margin="0,10,0,0" Click="OpenVault_Click" />
         </StackPanel>
     </Border>

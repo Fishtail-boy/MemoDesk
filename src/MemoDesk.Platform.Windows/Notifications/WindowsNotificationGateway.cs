@@ -130,7 +130,7 @@ public sealed class WindowsNotificationGateway : IReminderNotificationGateway, I
         if (!IsAvailable || _manager is null || !NotificationsEnabled()) return NotificationDeliveryOutcome.DefiniteFailure;
         try
         {
-            _manager.Show(new AppNotificationBuilder().AddText("备忘助手 · 测试通知")
+            _manager.Show(new AppNotificationBuilder().AddText("备忘 · 测试通知")
                 .AddText("系统通知已接收测试请求。正式提醒可在此完成或选择稍后提醒。")
                 .BuildNotification());
             return NotificationDeliveryOutcome.HandedOff;

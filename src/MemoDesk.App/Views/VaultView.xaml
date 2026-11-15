@@ -5,6 +5,7 @@
  Loaded="View_Loaded" Unloaded="View_Unloaded" PreviewMouseDown="Activity" PreviewKeyDown="Activity">
  <UserControl.Resources>
   <Style TargetType="PasswordBox"><Setter Property="Padding" Value="10,8"/><Setter Property="FontSize" Value="16"/>
+   <Setter Property="Background" Value="{DynamicResource SheetBrush}"/><Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
    <Setter Property="BorderBrush" Value="{DynamicResource RuleBrush}"/><Setter Property="BorderThickness" Value="1"/>
    <Style.Triggers><Trigger Property="Tag" Value="Invalid"><Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}"/><Setter Property="BorderThickness" Value="2"/></Trigger></Style.Triggers>
   </Style>
@@ -20,7 +21,7 @@
    </ControlTemplate></Setter.Value></Setter>
   </Style>
  </UserControl.Resources>
- <Grid Margin="22,18">
+ <Grid Margin="6,0,6,8">
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <DockPanel>
    <StackPanel DockPanel.Dock="Left"><TextBlock Text="密码库" Style="{StaticResource PageTitle}"/>
@@ -62,7 +63,7 @@
     </Grid>
    </DockPanel>
    <Grid Grid.Row="1">
-    <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="16"/><ColumnDefinition Width="260"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="10"/><ColumnDefinition Width="200"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
     <StackPanel><TextBlock Text="分类" Style="{StaticResource MetaText}" Margin="4,0,0,10"/>
      <ListBox ItemsSource="{Binding Filters}" SelectedItem="{Binding Filter}" BorderThickness="0" Background="Transparent" FontSize="13" ItemContainerStyle="{StaticResource VaultListItem}"/>
     </StackPanel>

@@ -42,7 +42,6 @@ public partial class QuickCaptureWindow : Window
         _hotkeyStatus = hotkeyStatus ?? throw new ArgumentNullException(nameof(hotkeyStatus));
 
         InitializeComponent();
-        WindowEffects.Attach(this, transient: true);
         HotkeyHint.Text = _hotkeyStatus.DisplayText;
         _hotkeyStatus.PropertyChanged += (_, _) =>
             Dispatcher.InvokeAsync(() => HotkeyHint.Text = _hotkeyStatus.DisplayText);
@@ -72,7 +71,9 @@ public partial class QuickCaptureWindow : Window
     }
 
     /// <summary>在光标所在显示器上显示并聚焦输入框；重复唤起时只复位焦点。</summary>
-    public void ShowForCapture()
+    public void ShowForCapture() => ShowForCapture(null);
+
+    public void ShowForCapture(Rect? anchor)
     {
         if (IsVisible)
         {
@@ -83,19 +84,26 @@ public partial class QuickCaptureWindow : Window
 
         _previousWindow = _foreground.Capture();
         ResetInput();
-        PlaceOnCursorMonitor();
+        PlaceOnCursorMonitor(anchor);
 
         Show();
         Activate();
         FocusInput();
     }
 
-    private void PlaceOnCursorMonitor()
+    private void PlaceOnCursorMonitor(Rect? anchor)
     {
         var area = _monitors.GetWorkAreaForCursor();
-        Width = Math.Min(600, Math.Max(420, area.Width - 80));
-        Left = area.Left + ((area.Width - Width) / 2);
-        Top = area.Top + (area.Height * 0.24);
+        Width = Math.Min(area.Width, Math.Min(Math.Max(320, area.Width - 24), 540));
+        if (anchor is not { } island)
+        {
+            Left = area.Left + (area.Width - Width) / 2;
+            Top = area.Top + area.Height * 0.24;
+            return;
+        }
+
+        Left = Math.Clamp(island.Left + (island.Width - Width) / 2, area.Left, area.Left + area.Width - Width);
+        Top = island.Bottom + 8 <= area.Top + area.Height - 218 ? island.Bottom + 8 : island.Top;
     }
 
     private void FocusInput()

@@ -3,7 +3,7 @@ using System.Windows.Media;
 
 namespace MemoDesk.App.Services;
 
-/// <summary>共享浅色蓝青主题；高对比度切换时更新动态资源。</summary>
+/// <summary>共享深色主题，并跟随 Windows 高对比度设置。</summary>
 public static class AppTheme
 {
     private static readonly Dictionary<string, object> Normal = new();
@@ -22,7 +22,7 @@ public static class AppTheme
         foreach (var pair in Normal) app.Resources[pair.Key] = pair.Value;
         if (!SystemParameters.HighContrast) return;
         foreach (var key in new[] { "PaperBrush", "SheetBrush", "CoverBrush", "AccentSoftBrush", "SealSoftBrush", "WarnSoftBrush" }) app.Resources[key] = SystemColors.WindowBrush;
-        foreach (var key in new[] { "InkBrush", "BodyBrush", "MutedBrush", "FaintBrush", "CoverTextBrush", "CoverMutedBrush", "RuleBrush", "HairlineBrush", "LineBrush", "DangerBrush" }) app.Resources[key] = SystemColors.WindowTextBrush;
+        foreach (var key in new[] { "InkBrush", "BodyBrush", "MutedBrush", "FaintBrush", "CoverTextBrush", "CoverMutedBrush", "RuleBrush", "HairlineBrush", "LineBrush", "DangerBrush", "CyanBrush" }) app.Resources[key] = SystemColors.WindowTextBrush;
         app.Resources["AccentBrush"] = app.Resources["SealBrush"] = SystemColors.HighlightBrush;
         app.Resources["PrimaryTextBrush"] = SystemColors.HighlightTextBrush;
     }

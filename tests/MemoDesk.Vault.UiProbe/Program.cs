@@ -34,6 +34,8 @@ internal static class Program
     private static bool _nativeClipboardRestored;
     [STAThread] private static int Main(string[] args)
     {
+        if (args.FirstOrDefault() == "--legacy-instance-check")
+            return LegacyInstanceCheck(args).GetAwaiter().GetResult();
         var root = Directory.GetCurrentDirectory();
         _nativeClipboard = args.Contains("--native-clipboard", StringComparer.Ordinal);
         if (!File.Exists(Path.Combine(root, "MemoDesk.sln"))) throw new InvalidOperationException("Run from the repository root.");
@@ -264,11 +266,178 @@ internal static class Program
         var restoreVersion = vm.Vault.SessionVersion;
         var restored = await vm.RunAsync(() => vm.Vault.RestoreBackup(backup, Master, restoreVersion), "恢复完成", changesSession: true);
         Check("restore-reports-success-and-requires-unlock", restored && !vm.IsUnlocked && vm.Status == "恢复完成");
+        await SettingsChecks(main, host);
+        await IpcChecks();
+        await LegacyIpcChecks();
         if (_nativeClipboard) await NativeClipboardCheck();
         async Task Unlock()
         {
             master.Password = Master; Click(unlock); await Wait(() => !vm.IsBusy && vm.IsUnlocked);
         }
+    }
+    private static async Task SettingsChecks(Window main, IHost host)
+    {
+        var nav = host.Services.GetRequiredService<MainViewModel>();
+        nav.NavigateTo("settings"); await Render();
+        var model = host.Services.GetRequiredService<SettingsViewModel>();
+        var settings = host.Services.GetRequiredService<AppSettings>();
+        var page = Descendants<SettingsView>(main).Single();
+        var keyBox = (PasswordBox)page.FindName("ApiKeyBox");
+        keyBox.Password = "synthetic-settings-key";
+        model.ApiBaseUrl = "http://remote.invalid";
+        Click(Button(page, "保存设置"));
+        Check("invalid-url-preserves-key-input-and-settings", keyBox.Password == "synthetic-settings-key"
+            && settings.ApiBaseUrl == AppSettings.DefaultApiBaseUrl && settings.ApiKey is null);
+        model.ApiBaseUrl = AppSettings.DefaultApiBaseUrl; model.TimeZoneId = "invalid/timezone";
+        Click(Button(page, "保存设置"));
+        Check("invalid-timezone-does-not-partially-save", settings.ApiKey is null && keyBox.Password.Length > 0);
+        model.TimeZoneId = "UTC"; Click(Button(page, "保存设置"));
+        Check("valid-settings-save-and-clear-key-input", settings.TimeZoneId == "UTC"
+            && settings.ApiKey == "synthetic-settings-key" && keyBox.Password.Length == 0 && model.StatusMessage == "设置已保存。");
+        var backups = host.Services.GetRequiredService<DatabaseBackupService>();
+        var export = Path.Combine(Output, "ui-verified-export.memobak");
+        await Task.Run(() => backups.Export(export));
+        Check("production-backup-service-exports", File.Exists(export) && new FileInfo(export).Length > 0);
+        var scroll = Descendants<ScrollViewer>(page).First(); scroll.ScrollToEnd(); await Render();
+        Check("backup-actions-visible", Button(page, "导出备忘备份").IsVisible && Button(page, "打开自动备份目录").IsVisible);
+        Capture(main, "settings-backup.png");
+    }
+
+    private static async Task IpcChecks()
+    {
+        var id = Guid.NewGuid();
+        using var primary = new MemoDesk.Platform.Windows.SingleInstance.SingleInstanceCoordinator(id);
+        Check("ipc-primary-acquires", primary.TryAcquirePrimary());
+        using (var secondary = new MemoDesk.Platform.Windows.SingleInstance.SingleInstanceCoordinator(id))
+            Check("ipc-secondary-cannot-acquire", !secondary.TryAcquirePrimary());
+        var received = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var failureObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var afterIdle = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        primary.StartListening(command =>
+        {
+            if (command == "throw") { failureObserved.SetResult(); throw new InvalidOperationException("synthetic failure"); }
+            if (command == "after-idle") { afterIdle.SetResult(); return Task.CompletedTask; }
+            received.TrySetResult(command); return Task.CompletedTask;
+        });
+        await MemoDesk.Platform.Windows.SingleInstance.SingleInstanceCoordinator.TrySendCommandAsync("throw", TimeSpan.FromSeconds(2), id);
+        await failureObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Check("ipc-send-after-callback-failure", await MemoDesk.Platform.Windows.SingleInstance.SingleInstanceCoordinator.TrySendCommandAsync(
+            "activate", TimeSpan.FromSeconds(2), id));
+        Check("ipc-listener-survives-callback-failure", await received.Task.WaitAsync(TimeSpan.FromSeconds(5)) == "activate");
+        Check("ipc-rejects-oversized-command", !await MemoDesk.Platform.Windows.SingleInstance.SingleInstanceCoordinator.TrySendCommandAsync(
+            new string('x', 4097), TimeSpan.FromSeconds(1), id));
+        var pipe = Field<string>(primary, "_pipeName");
+        using var idle = new System.IO.Pipes.NamedPipeClientStream(".", pipe, System.IO.Pipes.PipeDirection.Out,
+            System.IO.Pipes.PipeOptions.Asynchronous | System.IO.Pipes.PipeOptions.CurrentUserOnly);
+        await idle.ConnectAsync(2000);
+        Check("ipc-idle-client-cannot-block-activation", await MemoDesk.Platform.Windows.SingleInstance.SingleInstanceCoordinator.TrySendCommandAsync(
+            "after-idle", TimeSpan.FromSeconds(6), id));
+        await afterIdle.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Check("ipc-command-delivered-after-idle-timeout", afterIdle.Task.IsCompletedSuccessfully);
+    }
+
+    // Reproduce the old process's mutex and wire protocol in a separate process. Names are
+    // isolated by a random ID; neither this mode nor its parent opens the real application data.
+    private static async Task<int> LegacyInstanceCheck(string[] args)
+    {
+        using var marker = new Mutex(initiallyOwned: false, args[1], out var created);
+        Console.WriteLine(created ? "primary" : "secondary");
+        if (created) { await Console.In.ReadLineAsync(); return 0; }
+        using var client = new System.IO.Pipes.NamedPipeClientStream(".", args[2], System.IO.Pipes.PipeDirection.Out,
+            System.IO.Pipes.PipeOptions.Asynchronous);
+        await client.ConnectAsync(5000);
+        using var writer = new StreamWriter(client, new System.Text.UTF8Encoding(false)) { AutoFlush = true };
+        await writer.WriteLineAsync(args[3]);
+        return 0;
+    }
+
+    private static Process StartLegacyProcess(MemoDesk.Platform.Windows.SingleInstance.SingleInstanceCoordinator coordinator, string command)
+    {
+        var start = new ProcessStartInfo(Environment.ProcessPath!)
+        {
+            UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,
+        };
+        foreach (var argument in new[] { "--legacy-instance-check", Field<string>(coordinator, "_legacyMutexName"),
+            Field<string>(coordinator, "_legacyPipeName"), command }) start.ArgumentList.Add(argument);
+        return Process.Start(start)!;
+    }
+
+    private static async Task StopLegacyProcess(Process process)
+    {
+        try
+        {
+            if (!process.HasExited) await process.StandardInput.WriteLineAsync("exit");
+            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+        }
+        finally
+        {
+            if (!process.HasExited) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync(); }
+        }
+    }
+
+    private static async Task LegacyIpcChecks()
+    {
+        var firstId = Guid.NewGuid();
+        using (var newer = new MemoDesk.Platform.Windows.SingleInstance.SingleInstanceCoordinator(firstId))
+        using (var older = StartLegacyProcess(newer, "activate"))
+        {
+            try
+            {
+                Check("legacy-first-child-becomes-primary", await older.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(10)) == "primary");
+                Check("legacy-first-blocks-new-process", !newer.TryAcquirePrimary() && newer.LegacyInstanceDetected);
+            }
+            finally { await StopLegacyProcess(older); }
+        }
+        using (var replacement = new MemoDesk.Platform.Windows.SingleInstance.SingleInstanceCoordinator(firstId))
+            Check("legacy-exit-releases-new-process", replacement.TryAcquirePrimary());
+
+        var secondId = Guid.NewGuid();
+        using (var newer = new MemoDesk.Platform.Windows.SingleInstance.SingleInstanceCoordinator(secondId))
+        {
+            Check("new-first-acquires-both-version-markers", newer.TryAcquirePrimary());
+            using (var secondary = new MemoDesk.Platform.Windows.SingleInstance.SingleInstanceCoordinator(secondId))
+                Check("new-secondary-is-not-misidentified-as-legacy", !secondary.TryAcquirePrimary() && !secondary.LegacyInstanceDetected);
+            var commands = System.Threading.Channels.Channel.CreateUnbounded<string>();
+            newer.StartListening(command => { commands.Writer.TryWrite(command); return Task.CompletedTask; });
+            var notification = MemoDesk.Platform.Windows.SingleInstance.AppCommands.ForNotificationAction(
+                new MemoDesk.Core.Reminders.ReminderNotificationAction(Guid.NewGuid(), "complete", null));
+            foreach (var command in new[] { "activate", notification })
+            {
+                using var older = StartLegacyProcess(newer, command);
+                try
+                {
+                    Check("new-first-legacy-child-remains-secondary-" + command.Split(':')[0],
+                        await older.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(10)) == "secondary");
+                    await older.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+                    Check("legacy-wire-command-delivered-" + command.Split(':')[0], older.ExitCode == 0
+                        && await commands.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(10)) == command);
+                }
+                finally { await StopLegacyProcess(older); }
+            }
+        }
+        var legacyName = @"Local\MemoDesk.SingleInstance." + secondId.ToString("N");
+        using (var oldAfterExit = new Mutex(initiallyOwned: false, legacyName, out var created))
+            Check("new-exit-releases-legacy-marker", created);
+
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            var id = Guid.NewGuid();
+            using var newer = new MemoDesk.Platform.Windows.SingleInstance.SingleInstanceCoordinator(id);
+            using var start = new ManualResetEventSlim();
+            Mutex? legacy = null;
+            var oldWon = false;
+            var oldStart = Task.Run(() => { start.Wait(); legacy = new Mutex(false, Field<string>(newer, "_legacyMutexName"), out oldWon); });
+            var newStart = Task.Run(() => { start.Wait(); return newer.TryAcquirePrimary(); });
+            start.Set();
+            try
+            {
+                await Task.WhenAll(oldStart, newStart);
+                if (oldWon == newStart.Result) throw new InvalidOperationException("Concurrent starts did not select exactly one primary.");
+            }
+            finally { legacy?.Dispose(); }
+        }
+        Check("legacy-and-new-concurrent-starts-select-one-primary-20-times", true);
     }
     private static async Task NativeClipboardCheck()
     {

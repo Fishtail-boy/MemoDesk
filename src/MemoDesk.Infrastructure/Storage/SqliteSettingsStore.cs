@@ -42,6 +42,22 @@ public sealed class SqliteSettingsStore : ISettingsStore
         command.ExecuteNonQuery();
     }
 
+    public void SetMany(IReadOnlyDictionary<string, string> values)
+    {
+        using var connection = _connectionFactory.Create();
+        using var transaction = connection.BeginTransaction();
+        foreach (var (key, value) in values)
+        {
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = "INSERT INTO app_settings (key,value) VALUES ($key,$value) ON CONFLICT(key) DO UPDATE SET value=excluded.value;";
+            command.Parameters.AddWithValue("$key", key);
+            command.Parameters.AddWithValue("$value", value);
+            command.ExecuteNonQuery();
+        }
+        transaction.Commit();
+    }
+
     public IReadOnlyDictionary<string, string> GetAll()
     {
         using var connection = _connectionFactory.Create();

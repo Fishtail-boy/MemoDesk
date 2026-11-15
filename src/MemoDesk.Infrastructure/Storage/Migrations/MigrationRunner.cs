@@ -36,6 +36,11 @@ public sealed class MigrationRunner
     {
         using var connection = _connectionFactory.Create();
         var currentVersion = GetUserVersion(connection);
+        var latestVersion = _migrations.Max(m => m.Version);
+        if (currentVersion > latestVersion)
+        {
+            throw new InvalidOperationException("数据库由更新版本的备忘助手创建，请使用新版程序打开，避免损坏数据。");
+        }
 
         foreach (var migration in _migrations.OrderBy(m => m.Version))
         {

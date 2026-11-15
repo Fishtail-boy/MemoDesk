@@ -38,7 +38,7 @@ public partial class SettingsView : UserControl
                 if (!field.IsValid) { viewModel.StatusMessage = field.ValidationError!; return; }
             }
             viewModel.SaveCommand.Execute(null);
-            ApiKeyBox.Clear();
+            if (string.IsNullOrEmpty(viewModel.ApiKeyInput)) ApiKeyBox.Clear();
         }
     }
 

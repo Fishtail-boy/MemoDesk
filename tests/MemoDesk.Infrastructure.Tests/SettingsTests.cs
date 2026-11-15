@@ -16,6 +16,31 @@ internal sealed class Base64Protector : ISecretProtector
 public sealed class SettingsTests
 {
     [Fact]
+    public void MultiSettingWriteRollsBackWhenOneWriteFails()
+    {
+        using var db = new TestDatabase();
+        db.SettingsStore.Set("existing", "original");
+        using var connection = db.Factory.Create();
+        using var trigger = connection.CreateCommand();
+        trigger.CommandText = "CREATE TRIGGER fail_settings BEFORE INSERT ON app_settings WHEN new.key='fail' BEGIN SELECT RAISE(ABORT,'simulated full disk'); END;";
+        trigger.ExecuteNonQuery();
+        Assert.Throws<Microsoft.Data.Sqlite.SqliteException>(() => db.SettingsStore.SetMany(
+            new Dictionary<string,string> { ["existing"] = "changed", ["fail"] = "value" }));
+        Assert.Equal("original", db.SettingsStore.Get("existing"));
+    }
+
+    [Fact]
+    public void InvalidConfigurationDoesNotPartiallySave()
+    {
+        using var db = new TestDatabase();
+        var settings = new AppSettings(db.SettingsStore, new Base64Protector());
+        Assert.Throws<ArgumentException>(() => settings.SaveConfiguration("UTC", "http://remote.example", "model", "key",
+            settings.SnoozeOptions, false, false, false));
+        Assert.Equal("Asia/Shanghai", settings.TimeZoneId);
+        Assert.Null(settings.ApiKey);
+        Assert.True(settings.UseSystemNotifications);
+    }
+    [Fact]
     public void AppSettings_UsesDefaultsOnFreshDatabase()
     {
         using var db = new TestDatabase();
@@ -65,13 +90,18 @@ public sealed class SettingsTests
         using var db = new TestDatabase();
         var settings = new AppSettings(db.SettingsStore, new Base64Protector());
 
-        settings.Widget = new WidgetState(true, true, 10.5, 20.5, 320, 420);
+        settings.Widget = new WidgetState(true, true, 10.5, 20.5, 320, 420)
+        {
+            Dock = "right", KeepOpen = true, WeChatAlerts = true, TrackQuota = true,
+        };
 
         var loaded = settings.Widget;
         Assert.True(loaded.Visible);
         Assert.True(loaded.Pinned);
         Assert.Equal(10.5, loaded.Left);
         Assert.Equal(420, loaded.Height);
+        Assert.Equal("right", loaded.Dock);
+        Assert.True(loaded.KeepOpen && loaded.WeChatAlerts && loaded.TrackQuota);
     }
 
     [Fact]
@@ -85,6 +115,8 @@ public sealed class SettingsTests
         Assert.False(settings.Widget.Locked);
         Assert.False(settings.Widget.Collapsed);
         Assert.False(settings.Widget.TodayOnly);
+        Assert.Null(settings.Widget.Dock);
+        Assert.False(settings.Widget.KeepOpen || settings.Widget.WeChatAlerts || settings.Widget.TrackQuota);
         settings.Widget = settings.Widget with { Locked = true, Collapsed = true, TodayOnly = true };
         settings.AllowFallbackNotifications = false;
         var reloaded = new AppSettings(db.SettingsStore, new Base64Protector());

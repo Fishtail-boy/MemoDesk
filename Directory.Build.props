@@ -5,8 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
-    <Product>备忘助手</Product>
+    <Product>备忘</Product>
     <Company>MemoDesk</Company>
-    <Version>0.10.4-preview</Version>
+    <Version>0.11.0-rc.1</Version>
   </PropertyGroup>
 </Project>

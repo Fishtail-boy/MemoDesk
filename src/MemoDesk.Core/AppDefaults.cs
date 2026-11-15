@@ -6,7 +6,7 @@ namespace MemoDesk.Core;
 public static class AppDefaults
 {
     /// <summary>产品显示名。</summary>
-    public const string ProductName = "备忘助手";
+    public const string ProductName = "备忘";
 
     /// <summary>默认业务时区（IANA 标识；.NET 在 Windows 上通过 ICU 支持 IANA 标识）。</summary>
     public const string BusinessTimeZoneId = "Asia/Shanghai";

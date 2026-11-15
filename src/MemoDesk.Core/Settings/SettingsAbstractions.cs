@@ -9,6 +9,11 @@ public interface ISettingsStore
 
     void Remove(string key);
 
+    void SetMany(IReadOnlyDictionary<string, string> values)
+    {
+        foreach (var (key, value) in values) Set(key, value);
+    }
+
     IReadOnlyDictionary<string, string> GetAll();
 }
 

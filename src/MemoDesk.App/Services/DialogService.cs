@@ -24,7 +24,7 @@ public sealed class DialogService
     }
 
     /// <summary>编辑事项并把内容与提醒计划一起保存。返回是否发生了修改。</summary>
-    public bool EditItem(Item item, TimeZoneInfo timeZone)
+    public bool EditItem(Item item, TimeZoneInfo timeZone, Window? owner = null)
     {
         var activeReminder = _reminders.GetActiveForItem(item.Id);
         var window = new ItemEditWindow(
@@ -35,15 +35,15 @@ public sealed class DialogService
             request => _items.UpdateWithReminder(request.Item, request.Reminder),
             _settings?.SnoozeOptions)
         {
-            Owner = Application.Current?.MainWindow,
+            Owner = owner ?? Application.Current?.MainWindow,
         };
 
         return window.ShowDialog() == true;
     }
 
-    public bool Confirm(string message, string title = "备忘助手")
+    public bool Confirm(string message, string title = "备忘", Window? owner = null)
     {
-        var owner = Application.Current?.MainWindow;
+        owner ??= Application.Current?.MainWindow;
         var result = owner is null
             ? MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Question)
             : MessageBox.Show(owner, message, title, MessageBoxButton.YesNo, MessageBoxImage.Question);
@@ -54,7 +54,7 @@ public sealed class DialogService
         MessageBox.Show(
             Application.Current?.MainWindow,
             message,
-            "备忘助手",
+            "备忘",
             MessageBoxButton.OK,
             MessageBoxImage.Warning);
 }

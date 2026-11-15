@@ -39,6 +39,8 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 *.memovault
+*.memobak
+*.memobak.tmp-*
 *.memovault.tmp-*
 *.db.create-*
 *.db.snapshot-*

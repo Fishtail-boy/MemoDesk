@@ -10,16 +10,21 @@
 [CmdletBinding()]
 param(
     [string]$Configuration = 'Release',
-    [string]$Runtime = 'win-x64',
-    [string]$Version = '0.10.3.0',
+    [ValidateSet('win-x64')][string]$Runtime = 'win-x64',
+    [string]$Version,
     [string]$CertificateThumbprint
 )
 
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
+if (-not $Version) {
+    [xml]$props = Get-Content -LiteralPath (Join-Path $root 'Directory.Build.props') -Raw -Encoding UTF8
+    $Version = ([string]$props.Project.PropertyGroup.Version -split '-')[0] + '.0'
+}
+if ($Version -notmatch '^\d+\.\d+\.\d+\.\d+$') { throw 'Invalid MSIX version.' }
 $appProject = Join-Path $root 'src\MemoDesk.App\MemoDesk.App.csproj'
-$stageDir = Join-Path $root 'artifacts\msix\stage'
+$stageDir = Join-Path $root ('artifacts\msix\stage-' + [Guid]::NewGuid().ToString('N'))
 $outputDir = Join-Path $root 'artifacts\msix'
 $msixPath = Join-Path $outputDir ("MemoDesk_{0}_{1}.msix" -f $Version, $Runtime)
 
@@ -39,10 +44,6 @@ function Find-SdkTool([string]$Name) {
     }
 
     return $tool
-}
-
-if (Test-Path $stageDir) {
-    Remove-Item $stageDir -Recurse -Force
 }
 
 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null

@@ -24,7 +24,7 @@ public sealed class TrayIconService : IDisposable
         var showItem = new Forms.ToolStripMenuItem("显示主窗口");
         showItem.Click += (_, _) => ShowMainWindowRequested?.Invoke(this, EventArgs.Empty);
 
-        _widgetItem = new Forms.ToolStripMenuItem("显示桌面备忘");
+        _widgetItem = new Forms.ToolStripMenuItem("显示桌面岛");
         _widgetItem.Click += (_, _) => ToggleWidgetRequested?.Invoke(this, EventArgs.Empty);
 
         var settingsItem = new Forms.ToolStripMenuItem("设置");
@@ -80,7 +80,10 @@ public sealed class TrayIconService : IDisposable
         _quickCaptureItem.Text = string.IsNullOrWhiteSpace(gesture) ? "记一条" : $"记一条（{gesture}）";
 
     public void SetWidgetVisible(bool visible) =>
-        _widgetItem.Text = visible ? "隐藏桌面备忘" : "显示桌面备忘";
+        _widgetItem.Text = visible ? "隐藏桌面岛" : "显示桌面岛";
+
+    public void ShowInfo(string message) =>
+        _notifyIcon.ShowBalloonTip(5000, AppDefaults.ProductName, message, Forms.ToolTipIcon.Info);
 
     /// <summary>显示一条简短状态（例如“已记录 14:32”）。</summary>
     public void SetStatusText(string? status)

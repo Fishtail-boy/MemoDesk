@@ -48,6 +48,8 @@ public partial class App : Application
     private DispatcherTimer? _reminderTimer;
     private ReminderWakeService? _reminderWake;
     private MemoWidgetWindow? _widget;
+    private DaozaiIsland? _nativeIsland;
+    private IslandWorkbenchHost? _islandWorkbench;
     private MainViewModel? _mainViewModel;
     private VaultLockCoordinator? _vaultLocks;
     private VaultHotkeyManager? _vaultHotkeys;
@@ -72,20 +74,30 @@ public partial class App : Application
         base.OnStartup(e);
         RegisterGlobalExceptionHandlers();
 
-        _singleInstance = new SingleInstanceCoordinator();
-        var activation = NotificationActivationReader.TryRead();
-        if (!_singleInstance.TryAcquirePrimary())
-        {
-            var command = activation is null
-                ? AppCommands.Activate
-                : AppCommands.ForNotificationAction(activation);
-            await SingleInstanceCoordinator.TrySendCommandAsync(command, TimeSpan.FromSeconds(3));
-            Shutdown();
-            return;
-        }
-
         try
         {
+            _singleInstance = new SingleInstanceCoordinator();
+            var activation = NotificationActivationReader.TryRead();
+            if (!_singleInstance.TryAcquirePrimary())
+            {
+                if (_singleInstance.LegacyInstanceDetected)
+                {
+                    MessageBox.Show("旧版备忘仍在运行，请先从旧版托盘菜单选择“退出”，再启动新版。",
+                        AppDefaults.ProductName, MessageBoxButton.OK, MessageBoxImage.Information);
+                    Shutdown();
+                    return;
+                }
+                var command = activation is null
+                    ? AppCommands.Activate
+                    : AppCommands.ForNotificationAction(activation);
+                var forwarded = await SingleInstanceCoordinator.TrySendCommandAsync(command, TimeSpan.FromSeconds(3));
+                if (!forwarded)
+                    MessageBox.Show("已运行的备忘暂时没有响应，请稍后重试或从托盘退出后重新打开。",
+                        AppDefaults.ProductName, MessageBoxButton.OK, MessageBoxImage.Information);
+                Shutdown();
+                return;
+            }
+
             if (activation is { Action: "complete" or "snooze" })
             {
                 _startupMode = StartupMode.NotificationAction;
@@ -100,6 +112,8 @@ public partial class App : Application
             // 数据库必须在后台解析等托管服务启动前完成迁移。
             var bootstrapper = _host.Services.GetRequiredService<DatabaseBootstrapper>();
             bootstrapper.Initialize();
+            if (_host.Services.GetRequiredService<DatabaseBackupService>().BackupFailed)
+                Log.Warning("启动时备忘自动备份失败，可在设置中检查并手动导出。");
 
             if (_startupMode == StartupMode.NotificationAction && activation is not null)
             {
@@ -130,7 +144,7 @@ public partial class App : Application
             ConfigureItemChangeEvents();
 
             _singleInstance.StartListening(HandleCommandAsync);
-            ShowMainWindow();
+            if (!IslandVisible) ShowMainWindow();
 
             // 未打包/通知网关不可用时，冷启动的正文激活无法通过 NotificationInvoked 回放。
             if (_pendingOpenAction is not null && _notificationGateway?.IsAvailable != true)
@@ -155,6 +169,8 @@ public partial class App : Application
     {
         try
         {
+            _islandWorkbench?.Dispose();
+            _nativeIsland?.Dispose();
             _vaultLocks?.Dispose(); _vaultLocks = null;
             _vaultHotkeys?.Dispose(); _vaultHotkeys = null;
             _reminderTimer?.Stop();
@@ -209,14 +225,12 @@ public partial class App : Application
             _tray?.Dispose();
             _tray = null;
 
-            _singleInstance?.Dispose();
-            _singleInstance = null;
-
             if (_host is not null)
             {
                 if (_hostStarted)
                 {
                     _host.StopAsync(TimeSpan.FromSeconds(2)).GetAwaiter().GetResult();
+                    _host.Services.GetRequiredService<DatabaseBackupService>().RefreshDailyBackup();
                 }
 
                 _host.Dispose();
@@ -225,6 +239,9 @@ public partial class App : Application
         }
         finally
         {
+            // Keep both version markers until background writes and the final backup have stopped.
+            _singleInstance?.Dispose();
+            _singleInstance = null;
             Log.CloseAndFlush();
             base.OnExit(e);
         }
@@ -257,6 +274,8 @@ public partial class App : Application
                 services.AddSingleton(new SqliteConnectionFactory(paths.DatabasePath));
                 services.AddSingleton<MigrationRunner>();
                 services.AddSingleton<DatabaseBootstrapper>();
+                services.AddSingleton<DatabaseBackupService>();
+                services.AddHostedService<DatabaseBackupWorker>();
                 services.AddSingleton<LegacyMemoMigration>();
 
                 services.AddSingleton<ISettingsStore, SqliteSettingsStore>();
@@ -320,6 +339,7 @@ public partial class App : Application
                 services.AddSingleton<MainWindow>();
                 services.AddSingleton<QuickCaptureWindow>();
                 services.AddSingleton<MemoWidgetWindow>();
+                services.AddSingleton<DaozaiIsland>();
             })
             .Build();
     }
@@ -338,7 +358,7 @@ public partial class App : Application
         _tray.ShowMainWindowRequested += (_, _) => Dispatcher.InvokeAsync(() => ShowMainWindow("memos"));
         _tray.QuickCaptureRequested += (_, _) => Dispatcher.InvokeAsync(ShowQuickCapture);
         _tray.SettingsRequested += (_, _) => Dispatcher.InvokeAsync(() => ShowMainWindow("settings"));
-        _tray.ToggleWidgetRequested += (_, _) => Dispatcher.InvokeAsync(() => _widget?.ToggleVisibility());
+        _tray.ToggleWidgetRequested += (_, _) => Dispatcher.InvokeAsync(ToggleIsland);
         _tray.ExitRequested += (_, _) => Dispatcher.InvokeAsync(ExitApplication);
         _tray.VaultRequested += (_, _) => Dispatcher.InvokeAsync(() => ShowMainWindow("vault"));
         _tray.VaultLockRequested += (_, _) => Dispatcher.InvokeAsync(() => _vaultLocks?.Lock());
@@ -379,18 +399,20 @@ public partial class App : Application
 
         today.QuickCaptureRequested += () => Dispatcher.InvokeAsync(ShowQuickCapture);
         memos.QuickCaptureRequested += () => Dispatcher.InvokeAsync(ShowQuickCapture);
-        memos.WidgetRequested += () => Dispatcher.InvokeAsync(() => _widget?.ToggleVisibility());
+        memos.WidgetRequested += () => Dispatcher.InvokeAsync(ToggleIsland);
 
-        window.Captured += capture =>
-        {
-            var localTime = TimeZoneInfo.ConvertTime(capture.CapturedAtUtc, _host!.Services.GetRequiredService<AppSettings>().TimeZone);
-            _tray?.SetStatusText($"已记录 {localTime:HH:mm}");
-            _mainViewModel?.RefreshAfterMemoChange();
-            _widget?.Refresh();
-            _scheduleCoordinator?.Reconcile();
-            _reminderWake?.Wake();
-            coordinator.Notify(capture.Id);
-        };
+        window.Captured += capture => OnCaptured(capture, coordinator);
+    }
+
+    private void OnCaptured(Capture capture, MemoParseCoordinator coordinator)
+    {
+        var localTime = TimeZoneInfo.ConvertTime(capture.CapturedAtUtc, _host!.Services.GetRequiredService<AppSettings>().TimeZone);
+        _tray?.SetStatusText($"已记录 {localTime:HH:mm}");
+        _mainViewModel?.RefreshAfterMemoChange();
+        _widget?.Refresh();
+        _scheduleCoordinator?.Reconcile();
+        _reminderWake?.Wake();
+        coordinator.Notify(capture.Id);
     }
 
     private void ConfigureVault()
@@ -399,17 +421,21 @@ public partial class App : Application
         _vaultLocks.Start();
         _vaultLocks.Attach(_host.Services.GetRequiredService<MainWindow>());
         _vaultHotkeys = _host.Services.GetRequiredService<VaultHotkeyManager>();
-        _vaultHotkeys.Requested += () => Dispatcher.InvokeAsync(() =>
-        {
-            var model = _host.Services.GetRequiredService<VaultViewModel>();
-            if (model.IsBusy) return;
-            if (!model.Vault.Exists) { ShowMainWindow("vault"); return; }
-            if (_vaultQuickWindow?.IsVisible == true) { _vaultQuickWindow.Activate(); return; }
-            _vaultQuickWindow = new VaultQuickWindow(model);
-            _vaultQuickWindow.Closed += (_, _) => _vaultQuickWindow = null;
-            _vaultQuickWindow.Show();
-        });
+        _vaultHotkeys.Requested += () => Dispatcher.InvokeAsync(ShowVaultQuick);
         _vaultHotkeys.Apply(_vaultHotkeys.Gesture);
+    }
+
+    private void ShowVaultQuick()
+    {
+        if (_host is null) return;
+        var model = _host.Services.GetRequiredService<VaultViewModel>();
+        if (model.IsBusy) return;
+        if (!model.Vault.Exists) { ShowMainWindow("vault"); return; }
+        if (_vaultQuickWindow?.IsVisible == true) { _vaultQuickWindow.Activate(); return; }
+        _vaultQuickWindow = new VaultQuickWindow(model);
+        _vaultQuickWindow.Closed += (_, _) => _vaultQuickWindow = null;
+        _vaultQuickWindow.Show();
+        _vaultQuickWindow.Activate();
     }
 
     private void ConfigureParsing()
@@ -464,6 +490,32 @@ public partial class App : Application
 
     private void ConfigureWidget()
     {
+        if (DaozaiIsland.IsAvailable)
+        {
+            _nativeIsland = _host!.Services.GetRequiredService<DaozaiIsland>();
+            _islandWorkbench = new IslandWorkbenchHost(_mainViewModel!, _vaultLocks!);
+            _nativeIsland.ShowWorkbench += _islandWorkbench.Show;
+            _nativeIsland.CloseWorkbench += _islandWorkbench.Close;
+            var nativeSettings = _host.Services.GetRequiredService<AppSettings>();
+            var coordinator = _host.Services.GetRequiredService<MemoParseCoordinator>();
+            _nativeIsland.Captured += capture => OnCaptured(capture, coordinator);
+            _nativeIsland.OpenPage += page =>
+            {
+                if (page == "vault") ShowVaultQuick();
+                else if (page == "restart")
+                {
+                    _nativeIsland.Stop();
+                    SetNativeIslandVisible(true);
+                }
+                else ShowMainWindow(page == "settings" ? "settings" : "memos");
+            };
+            _nativeIsland.Exited += () => { _islandWorkbench.Close(); SetNativeIslandVisible(false); };
+            _host.Services.GetRequiredService<SettingsViewModel>().SettingsSaved += () =>
+                SetNativeIslandVisible(nativeSettings.Widget.Visible);
+            SetNativeIslandVisible(nativeSettings.Widget.Visible);
+            return;
+        }
+
         _widget = _host!.Services.GetRequiredService<MemoWidgetWindow>();
         var settings = _host.Services.GetRequiredService<AppSettings>();
 
@@ -474,16 +526,43 @@ public partial class App : Application
         };
         _widget.ItemsChanged += () => _mainViewModel?.RefreshCurrent();
         _widget.OpenMainRequested += () => Dispatcher.InvokeAsync(() => ShowMainWindow("memos"));
+        _widget.OpenPageRequested += page => Dispatcher.InvokeAsync(() => ShowMainWindow(page));
+        _widget.CaptureRequested += anchor => ShowQuickCapture(anchor);
+        _widget.QuotaReset += message => _tray?.ShowInfo(message);
 
         if (settings.Widget.Visible)
         {
             _widget.ShowWidget();
         }
+        _tray?.SetWidgetVisible(_widget.IsVisible);
         _host.Services.GetRequiredService<SettingsViewModel>().SettingsSaved += () =>
         {
             if (_widget is null) return;
             if (settings.Widget.Visible) _widget.ShowWidget(); else _widget.HideWidget();
         };
+    }
+
+    private bool IslandVisible => _nativeIsland?.IsRunning == true || _widget?.IsVisible == true;
+
+    private void ToggleIsland()
+    {
+        if (_nativeIsland is not null) SetNativeIslandVisible(!_nativeIsland.IsRunning);
+        else _widget?.ToggleVisibility();
+    }
+
+    private void SetNativeIslandVisible(bool visible)
+    {
+        if (_host is null || _nativeIsland is null) return;
+        if (visible && !_nativeIsland.Start())
+        {
+            _tray?.ShowInfo("桌面岛启动失败，可以继续打开备忘工作台。");
+            visible = false;
+        }
+        if (!visible) { _islandWorkbench?.Close(); _nativeIsland.Stop(); }
+        var settings = _host.Services.GetRequiredService<AppSettings>();
+        if (settings.Widget.Visible != visible) settings.Widget = settings.Widget with { Visible = visible };
+        _tray?.SetWidgetVisible(visible);
+        _host.Services.GetRequiredService<SettingsViewModel>().ShowDesktopWidget = visible;
     }
 
     private void ConfigureNotifications()
@@ -593,7 +672,9 @@ public partial class App : Application
         window.Activate();
     }
 
-    private void ShowQuickCapture()
+    private void ShowQuickCapture() => ShowQuickCapture(null);
+
+    private void ShowQuickCapture(Rect? anchor)
     {
         if (_vaultHotkeys?.Recording == true) return;
         if (_host is null)
@@ -601,7 +682,7 @@ public partial class App : Application
             return;
         }
 
-        _host.Services.GetRequiredService<QuickCaptureWindow>().ShowForCapture();
+        _host.Services.GetRequiredService<QuickCaptureWindow>().ShowForCapture(anchor);
     }
 
     /// <summary>点击通知正文：唤起主窗口并打开对应事项的编辑窗口。</summary>
@@ -692,6 +773,10 @@ public partial class App : Application
         {
             Log.Error(args.Exception, "UI 线程未处理异常");
             args.Handled = true;
+            try { _vaultLocks?.Lock(); }
+            catch (Exception) { Log.Warning("异常后锁定密码库失败"); }
+            MessageBox.Show("刚才的操作未能完成，请检查界面后重试。已保存的数据仍保留。\n\n如问题持续，请从托盘退出后重新启动，并查看数据目录下的 logs 文件夹。",
+                AppDefaults.ProductName, MessageBoxButton.OK, MessageBoxImage.Warning);
         };
 
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>

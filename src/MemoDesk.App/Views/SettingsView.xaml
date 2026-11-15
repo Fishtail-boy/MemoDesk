@@ -3,18 +3,18 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:MemoDesk.App.Controls">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="32,26,32,32" MaxWidth="720" HorizontalAlignment="Left">
+        <StackPanel Margin="6,0,12,16" MaxWidth="720" HorizontalAlignment="Stretch">
             <TextBlock Text="设置" Style="{StaticResource PageTitle}" />
             <TextBlock Text="所有数据保存在本机；只有提交的原文会发送给 DeepSeek 解析。"
                        Style="{StaticResource PageSubtitle}" />
 
-            <Border BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,1,0,0" Padding="0,18,0,0" Margin="0,20,0,0">
+            <Border Style="{StaticResource CardBorder}" Padding="16" Margin="0,18,0,0">
                 <StackPanel>
                     <TextBlock Text="捕获" Style="{StaticResource SectionTitle}" FontSize="15" />
 
                     <StackPanel Margin="0,14,0,0">
                         <TextBlock Text="记一条快捷键" Style="{StaticResource FieldLabel}" />
-                        <StackPanel Orientation="Horizontal">
+                        <WrapPanel>
                             <TextBox x:Name="HotkeyBox"
                                      Text="{Binding HotkeyText, Mode=OneWay}"
                                      Style="{StaticResource FieldBox}"
@@ -38,7 +38,7 @@
                                     Style="{StaticResource GhostButton}"
                                     Margin="8,0,0,0"
                                     Command="{Binding ResetHotkeyCommand}" />
-                        </StackPanel>
+                        </WrapPanel>
                         <TextBlock Text="{Binding HotkeyHint}" Style="{StaticResource MetaText}" Margin="0,6,0,0" TextWrapping="Wrap" />
                     </StackPanel>
 
@@ -52,7 +52,7 @@
                 </StackPanel>
             </Border>
 
-            <Border BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,1,0,0" Padding="0,18,0,0" Margin="0,18,0,0">
+            <Border Style="{StaticResource CardBorder}" Padding="16" Margin="0,10,0,0">
                 <StackPanel>
                     <TextBlock Text="DeepSeek 解析" Style="{StaticResource SectionTitle}" FontSize="15" />
 
@@ -68,17 +68,17 @@
 
                     <StackPanel Margin="0,14,0,0">
                         <TextBlock Text="API Key（DPAPI 加密保存，仅在填写新值时更新）" Style="{StaticResource FieldLabel}" />
-                        <StackPanel Orientation="Horizontal">
-                            <PasswordBox x:Name="ApiKeyBox" Width="320" Height="32" VerticalContentAlignment="Center" Padding="8,0" PasswordChanged="ApiKeyBox_PasswordChanged" />
+                        <WrapPanel>
+                            <PasswordBox x:Name="ApiKeyBox" Width="260" Height="32" VerticalContentAlignment="Center" Padding="8,0" PasswordChanged="ApiKeyBox_PasswordChanged" />
                             <Button Content="清除已保存的 Key" Style="{StaticResource GhostButton}" Margin="10,0,0,0" Command="{Binding ClearApiKeyCommand}" />
-                        </StackPanel>
+                        </WrapPanel>
                         <TextBlock Text="已保存 API Key" Style="{StaticResource MetaText}" Margin="0,6,0,0"
                                    Visibility="{Binding HasApiKey, Converter={StaticResource BoolToVisible}}" />
                     </StackPanel>
                 </StackPanel>
             </Border>
 
-            <Border BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,1,0,0" Padding="0,18,0,0" Margin="0,18,0,0">
+            <Border Style="{StaticResource CardBorder}" Padding="16" Margin="0,10,0,0">
                 <StackPanel>
                     <Grid>
                         <TextBlock Text="稍后提醒" Style="{StaticResource SectionTitle}" FontSize="15" />
@@ -88,7 +88,7 @@
                                 Command="{Binding AddSnoozeOptionCommand}" />
                     </Grid>
                     <TextBlock Text="1–5 项；相对时长从点击时计算，“明天”按业务时区下一个自然日的指定时刻。"
-                               Style="{StaticResource MetaText}" Margin="0,6,0,0" />
+                               Style="{StaticResource MetaText}" Margin="0,6,0,0" TextWrapping="Wrap" />
 
                     <CheckBox Content="优先使用 Windows 系统通知"
                               IsChecked="{Binding UseSystemNotifications}"
@@ -109,7 +109,7 @@
                             </WrapPanel>
                         </StackPanel>
                     </Border>
-                    <CheckBox Content="显示桌面备忘（浅色玻璃 · 蓝青，默认不置顶）" IsChecked="{Binding ShowDesktopWidget}"
+                    <CheckBox Content="显示桌面岛" IsChecked="{Binding ShowDesktopWidget}"
                               Margin="0,12,0,8" Foreground="{DynamicResource BodyBrush}" />
 
                     <ItemsControl ItemsSource="{Binding SnoozeOptions}" Margin="0,8,0,0">
@@ -162,6 +162,17 @@
                 </StackPanel>
             </Border>
 
+            <Border Style="{StaticResource CardBorder}" Padding="16" Margin="0,10,0,0">
+                <StackPanel>
+                    <TextBlock Text="备份与恢复" Style="{StaticResource SectionTitle}" FontSize="15" />
+                    <TextBlock Text="{Binding BackupStatus}" Style="{StaticResource MetaText}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                    <TextBlock Text="备忘备份未加密，包含原文、提醒和设置，不包含密码库。请另存到其他磁盘并妥善保管；恢复步骤见发行包中的使用说明。" Style="{StaticResource MetaText}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                    <WrapPanel Margin="0,10,0,0">
+                        <Button Content="导出备忘备份" Style="{StaticResource GhostButton}" Command="{Binding ExportBackupCommand}" />
+                        <Button Content="打开自动备份目录" Style="{StaticResource LinkButton}" Margin="12,0,0,0" Command="{Binding OpenBackupFolderCommand}" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
             <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
                 <Button Content="保存设置" Style="{StaticResource PrimaryButton}" Click="Save_Click" />
                 <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource MetaText}" VerticalAlignment="Center" Margin="14,0,0,0" />

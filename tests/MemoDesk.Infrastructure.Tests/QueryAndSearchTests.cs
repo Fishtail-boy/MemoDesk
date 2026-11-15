@@ -60,7 +60,7 @@ public sealed class QueryAndSearchTests
     }
 
     [Fact]
-    public void WorkRecords_ShowCaptureAndCompletionFromSameMemo()
+    public void WorkRecords_ShowOneCaptureAfterMemoCompletion()
     {
         using var db = new TestDatabase();
         var capture = new MemoCaptureService(
@@ -72,10 +72,10 @@ public sealed class QueryAndSearchTests
 
         var records = db.Queries.GetWorkRecords(Today, Today, Shanghai);
 
-        Assert.Equal(2, records.Count);
-        Assert.Contains(records, entry => entry.Kind == WorkRecordKind.Captured && entry.Content == "今天要提交报表");
-        Assert.Contains(records, entry => entry.Kind == WorkRecordKind.Completed && entry.Note == "标记完成");
-        Assert.All(records, entry => Assert.Equal(capture.Memo.Id, entry.Item.Id));
+        var record = Assert.Single(records);
+        Assert.Equal(WorkRecordKind.Captured, record.Kind);
+        Assert.Equal("今天要提交报表", record.Content);
+        Assert.Equal(capture.Memo.Id, record.Item.Id);
     }
 
     [Fact]

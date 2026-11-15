@@ -8,6 +8,17 @@ namespace MemoDesk.Infrastructure.Tests;
 
 public sealed class LocalReminderCaptureTests
 {
+    [Theory]
+    [InlineData(1900)]
+    [InlineData(3000)]
+    public void LongAmbiguousReminderNeverPreventsOriginalCapture(int length)
+    {
+        using var db = new TestDatabase();
+        var raw = new string('1', length) + "秒后提醒我检查结果";
+        var result = new MemoCaptureService(new SqliteMemoCaptureStore(db.Factory), new Clock()).Capture(raw, "Asia/Shanghai");
+        Assert.Equal(raw, db.Captures.GetById(result.Capture.Id)!.RawText);
+        Assert.Null(db.Reminders.GetActiveForItem(result.Memo.Id));
+    }
     private static readonly DateTimeOffset Now = new(2026, 10, 25, 2, 0, 0, TimeSpan.Zero);
     private sealed class Clock : TimeProvider { public override DateTimeOffset GetUtcNow() => Now; }
     [Fact]

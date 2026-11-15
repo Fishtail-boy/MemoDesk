@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title id="title">备忘应用图标</title>
+  <rect x="8" y="8" width="240" height="240" rx="58" fill="#337DE1"/>
+  <rect x="53" y="40" width="150" height="176" rx="27" fill="#ffffff"/>
+  <path d="M83 91h91M83 121h63" fill="none" stroke="#9DBCE6" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="163" cy="170" r="37" fill="#1B3559"/>
+  <path d="m145 170 12 12 24-27" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

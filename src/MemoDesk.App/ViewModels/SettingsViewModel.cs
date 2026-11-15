@@ -6,6 +6,8 @@ using MemoDesk.Core;
 using MemoDesk.Core.Reminders;
 using MemoDesk.Core.Time;
 using MemoDesk.Infrastructure.Settings;
+using MemoDesk.Infrastructure.Storage;
+using Microsoft.Win32;
 using MemoDesk.Platform.Windows.Notifications;
 
 namespace MemoDesk.App.ViewModels;
@@ -55,12 +57,15 @@ public partial class SettingsViewModel : ObservableObject
     private readonly AppSettings _settings;
     private readonly HotkeyManager _hotkeys;
     private readonly WindowsNotificationGateway? _notifications;
+    private readonly DatabaseBackupService? _backups;
 
-    public SettingsViewModel(AppSettings settings, HotkeyManager hotkeys, WindowsNotificationGateway? notifications = null)
+    public SettingsViewModel(AppSettings settings, HotkeyManager hotkeys, WindowsNotificationGateway? notifications = null,
+        DatabaseBackupService? backups = null)
     {
         _settings = settings;
         _hotkeys = hotkeys;
         _notifications = notifications;
+        _backups = backups;
 
         _hotkeys.Status.PropertyChanged += (_, _) => ApplyHotkeyStatus();
         _hotkeys.RecordingHotkeyPressed += gesture =>
@@ -128,6 +133,38 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string statusMessage = string.Empty;
 
+    public string BackupStatus => _backups?.BackupFailed == true
+        ? "自动备份失败，请检查数据目录权限并导出备份。"
+        : "启动及运行期间每小时备份，按日期保留最近 14 份。密码库请在专用入口导出。";
+
+    [RelayCommand]
+    private async Task ExportBackupAsync()
+    {
+        if (_backups is null) return;
+        var dialog = new SaveFileDialog { Filter = "备忘备份 (*.memobak)|*.memobak", DefaultExt = ".memobak",
+            FileName = $"MemoDesk-{DateTime.Now:yyyyMMdd-HHmmss}.memobak" };
+        if (dialog.ShowDialog() != true) return;
+        try
+        {
+            await Task.Run(() => _backups.Export(dialog.FileName));
+            StatusMessage = "备忘备份已导出；文件包含原文和设置，请妥善保管。";
+        }
+        catch (Exception) { StatusMessage = "备份导出失败，请检查保存位置的空间和权限。"; }
+        OnPropertyChanged(nameof(BackupStatus));
+    }
+
+    [RelayCommand]
+    private void OpenBackupFolder()
+    {
+        if (_backups is null) return;
+        try
+        {
+            System.IO.Directory.CreateDirectory(_backups.BackupDirectory);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_backups.BackupDirectory) { UseShellExecute = true });
+        }
+        catch (Exception) { StatusMessage = "无法打开备份目录，请检查文件权限。"; }
+    }
+
     public void Load()
     {
         HotkeyText = _hotkeys.Status.DisplayText;
@@ -150,6 +187,7 @@ public partial class SettingsViewModel : ObservableObject
         }
 
         StatusMessage = string.Empty;
+        OnPropertyChanged(nameof(BackupStatus));
     }
 
     [RelayCommand]
@@ -245,47 +283,38 @@ public partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        if (!string.IsNullOrWhiteSpace(TimeZoneId))
+        try
         {
-            try
-            {
-                var zone = BusinessTime.Resolve(TimeZoneId.Trim());
-                _settings.TimeZoneId = zone.Id;
-            }
-            catch (Exception)
-            {
-                TimeZoneId = _settings.TimeZoneId;
-                StatusMessage = "时区无效，未保存时区设置。";
-            }
+            _ = BusinessTime.Resolve(TimeZoneId.Trim());
         }
-
-        if (!string.IsNullOrWhiteSpace(ApiBaseUrl))
+        catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException or ArgumentException)
         {
-            _settings.ApiBaseUrl = ApiBaseUrl.Trim();
+            StatusMessage = "时区无效，设置未保存。";
+            return;
         }
-
-        if (!string.IsNullOrWhiteSpace(ApiModel))
+        if (!ApiEndpoint.TryCreate(ApiBaseUrl, out _))
         {
-            _settings.ApiModel = ApiModel.Trim();
+            StatusMessage = ApiEndpoint.ValidationMessage;
+            return;
         }
-
-        if (!string.IsNullOrWhiteSpace(ApiKeyInput))
+        if (string.IsNullOrWhiteSpace(ApiModel))
         {
-            _settings.ApiKey = ApiKeyInput;
+            StatusMessage = "模型名称不能为空，设置未保存。";
+            return;
+        }
+        try
+        {
+            _settings.SaveConfiguration(TimeZoneId, ApiBaseUrl, ApiModel, ApiKeyInput, options,
+                UseSystemNotifications, AllowFallbackNotifications, ShowDesktopWidget);
             ApiKeyInput = string.Empty;
-            HasApiKey = true;
+            HasApiKey = !string.IsNullOrEmpty(_settings.ApiKey);
         }
-
-        _settings.SnoozeOptions = options;
-        _settings.UseSystemNotifications = UseSystemNotifications;
-        _settings.AllowFallbackNotifications = AllowFallbackNotifications;
-        _settings.Widget = _settings.Widget with { Visible = ShowDesktopWidget };
-
-        if (string.IsNullOrEmpty(StatusMessage))
+        catch (Exception)
         {
-            StatusMessage = "设置已保存。";
+            StatusMessage = "设置保存失败，原设置已保留，请检查磁盘空间和权限。";
+            return;
         }
-
+        StatusMessage = "设置已保存。";
         SettingsSaved?.Invoke();
     }
 

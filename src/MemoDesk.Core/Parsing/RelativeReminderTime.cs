@@ -9,15 +9,26 @@ public static class RelativeReminderTime
     private const string Unit = @"秒钟|seconds?|secs?|秒|s|分钟|minutes?|mins?|分|m|小时|钟头|hours?|hrs?|h|天|days?|d";
     private static readonly Regex Expression = new(
         @"(?<![\dA-Za-z.+-])(?<duration>(?:\d+\s*(?:" + Unit + @")\s*)+)(?:之后|以后|后)",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
         TimeSpan.FromMilliseconds(100));
     private static readonly Regex Component = new(@"(?<n>\d+)\s*(?<unit>" + Unit + @")\s*",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        RegexOptions.NonBacktracking | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
         TimeSpan.FromMilliseconds(100));
     private static readonly Regex UnsupportedPrefix = new(@"\d+\s*(?:年|个月|月|周|星期|[a-z]+)\s*$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
 
     public static bool TryFind(string text, out TimeSpan duration, out string expression)
+    {
+        try { return TryFindCore(text, out duration, out expression); }
+        catch (RegexMatchTimeoutException)
+        {
+            duration = default;
+            expression = string.Empty;
+            return false;
+        }
+    }
+
+    private static bool TryFindCore(string text, out TimeSpan duration, out string expression)
     {
         duration = default;
         expression = string.Empty;

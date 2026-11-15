@@ -16,15 +16,22 @@ namespace MemoDesk.Infrastructure.Parsing;
 /// </summary>
 public sealed class DeepSeekParser : IAiParser, IMemoAiParser
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(40) };
+    private static readonly HttpClient Http = new(new HttpClientHandler { AllowAutoRedirect = false })
+        { Timeout = Timeout.InfiniteTimeSpan };
+    private const int MaxResponseBytes = 1024 * 1024;
 
     private readonly AppSettings _settings;
     private readonly ILogger<DeepSeekParser> _logger;
+    private readonly HttpClient _http;
+    private readonly TimeSpan _requestTimeout;
 
-    public DeepSeekParser(AppSettings settings, ILogger<DeepSeekParser> logger)
+    public DeepSeekParser(AppSettings settings, ILogger<DeepSeekParser> logger,
+        HttpClient? httpClient = null, TimeSpan? requestTimeout = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _http = httpClient ?? Http;
+        _requestTimeout = requestTimeout ?? TimeSpan.FromSeconds(40);
     }
 
     public async Task<AiParseResponse> ParseAsync(AiParseRequest request, CancellationToken cancellationToken)
@@ -58,12 +65,13 @@ public sealed class DeepSeekParser : IAiParser, IMemoAiParser
         {
             throw new AiParseException(AiFailureKind.Configuration, "未配置 DeepSeek API Key，请在“设置”中填写。");
         }
+        if (apiKey.Any(char.IsControl))
+            throw new AiParseException(AiFailureKind.Configuration, "API Key 包含无效字符，请重新填写。");
 
         var model = _settings.ApiModel;
-        var baseUrl = _settings.ApiBaseUrl.Trim().TrimEnd('/');
-        if (!Uri.TryCreate($"{baseUrl}/chat/completions", UriKind.Absolute, out var endpoint))
+        if (!ApiEndpoint.TryCreate(_settings.ApiBaseUrl, out var endpoint))
         {
-            throw new AiParseException(AiFailureKind.Configuration, "DeepSeek 接口地址无效，请检查设置。");
+            throw new AiParseException(AiFailureKind.Configuration, ApiEndpoint.ValidationMessage);
         }
 
         var payload = BuildPayload(model, systemPrompt, userPrompt);
@@ -73,28 +81,12 @@ public sealed class DeepSeekParser : IAiParser, IMemoAiParser
         };
         httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
-        HttpResponseMessage response;
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(_requestTimeout);
         try
         {
-            response = await Http.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+            using var response = await _http.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, deadline.Token)
                 .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (TaskCanceledException ex)
-        {
-            throw new AiParseException(AiFailureKind.Transient, "请求 DeepSeek 超时。", ex);
-        }
-        catch (HttpRequestException ex)
-        {
-            throw new AiParseException(AiFailureKind.Transient, $"网络请求失败：{ex.Message}", ex);
-        }
-
-        using (response)
-        {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
             {
@@ -115,9 +107,10 @@ public sealed class DeepSeekParser : IAiParser, IMemoAiParser
             {
                 throw new AiParseException(
                     AiFailureKind.Configuration,
-                    $"DeepSeek 请求失败（{(int)response.StatusCode}）：{Truncate(body, 200)}");
+                    $"DeepSeek 请求失败（{(int)response.StatusCode}），请检查接口地址和模型设置。");
             }
 
+            var body = await ReadBodyAsync(response.Content, deadline.Token).ConfigureAwait(false);
             ChatEnvelope? envelope;
             try
             {
@@ -141,9 +134,36 @@ public sealed class DeepSeekParser : IAiParser, IMemoAiParser
             }
 
             var modelName = string.IsNullOrWhiteSpace(envelope?.Model) ? model : envelope.Model!;
-            _logger.LogInformation("DeepSeek 解析返回：model={Model}", modelName);
+            _logger.LogInformation("DeepSeek 解析请求完成");
             return (content, modelName);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException ex)
+        {
+            throw new AiParseException(AiFailureKind.Transient, "请求 DeepSeek 超时。", ex);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException)
+        {
+            // Provider bodies and transport messages can echo credentials or the submitted memo.
+            throw new AiParseException(AiFailureKind.Transient, "网络请求失败，请检查网络连接后重试。");
+        }
+    }
+
+    private static async Task<string> ReadBodyAsync(HttpContent content, CancellationToken token)
+    {
+        if (content.Headers.ContentLength > MaxResponseBytes)
+            throw new AiParseException(AiFailureKind.InvalidResponse, "接口响应过大，请检查服务配置。");
+        using var stream = await content.ReadAsStreamAsync(token).ConfigureAwait(false);
+        using var buffer = new MemoryStream();
+        var chunk = new byte[8192];
+        int count;
+        while ((count = await stream.ReadAsync(chunk, token).ConfigureAwait(false)) != 0)
+        {
+            if (buffer.Length + count > MaxResponseBytes)
+                throw new AiParseException(AiFailureKind.InvalidResponse, "接口响应过大，请检查服务配置。");
+            buffer.Write(chunk, 0, count);
+        }
+        return Encoding.UTF8.GetString(buffer.GetBuffer(), 0, (int)buffer.Length);
     }
 
     private static Dictionary<string, object?> BuildPayload(string model, string systemPrompt, string userPrompt) => new()
@@ -167,9 +187,6 @@ public sealed class DeepSeekParser : IAiParser, IMemoAiParser
         ["max_tokens"] = 3000,
         ["stream"] = false,
     };
-
-    private static string Truncate(string value, int max) =>
-        value.Length <= max ? value : value[..max] + "…";
 
     private sealed class ChatEnvelope
     {
