@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 [CmdletBinding()]
-param([switch]$RunUiChecks, [switch]$BuildDaozaiIsland)
+param([switch]$RunUiChecks, [switch]$BuildDaozaiIsland = $true)
 
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))

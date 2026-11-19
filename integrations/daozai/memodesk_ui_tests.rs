@@ -1,7 +1,22 @@
 use super::{egui, H, ENV_LOCK};
 use crate::app::{CALENDAR_PAGE, TODO_PAGE};
-use crate::memodesk::{Bridge, ASSETS_PAGE};
+use crate::memodesk::{Bridge, ASSETS_PAGE, VAULT_PAGE};
 use serde_json::json;
+
+#[test]
+fn tray_request_opens_the_vault_module() {
+    let _lock = ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+    let mut h = H::new();
+    let mut bridge = Bridge::new(&h.ctx);
+    bridge.set_test_snapshot(json!({"navigate": "vault"}));
+    h.app.memo_bridge = Some(bridge);
+
+    h.app.poll_memodesk(&h.ctx);
+
+    assert_eq!(h.app.page(), VAULT_PAGE);
+    assert!(h.app.open);
+    assert!(!h.app.settings_open);
+}
 
 #[test]
 fn digital_assets_is_a_swipeable_island_module() {
@@ -42,9 +57,16 @@ fn digital_assets_is_a_swipeable_island_module() {
         unit: egui::MouseWheelUnit::Point, delta: egui::vec2(delta, 0.0), modifiers: Default::default(),
     };
     h.frame(vec![horizontal(-26.0)]);
-    assert_eq!(h.app.page(), CALENDAR_PAGE);
+    assert_eq!(h.app.page(), VAULT_PAGE);
     h.frame(vec![horizontal(-26.0)]);
-    assert_eq!(h.app.page(), CALENDAR_PAGE, "one trackpad swipe must advance just once");
+    assert_eq!(h.app.page(), VAULT_PAGE, "one trackpad swipe must advance just once");
+    h.hover(left, 0.65);
+    assert!(h.shapes.iter().any(|shape| matches!(&shape.shape, egui::Shape::Text(text) if text.galley.text() == "密码库")));
+    h.click(H::local(398.0, 68.0));
+    assert_eq!(h.app.page(), CALENDAR_PAGE);
+    h.hover(left, 0.65);
+    h.click(H::local(21.0, 68.0));
+    assert_eq!(h.app.page(), VAULT_PAGE);
     h.hover(left, 0.3);
     h.frame(vec![horizontal(26.0)]);
     assert_eq!(h.app.page(), ASSETS_PAGE);

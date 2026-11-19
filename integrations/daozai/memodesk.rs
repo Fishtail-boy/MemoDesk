@@ -10,9 +10,19 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 
 pub(crate) const ASSETS_PAGE: usize = PAGE_NAMES.len();
+pub(crate) const VAULT_PAGE: usize = ASSETS_PAGE + 1;
 
 pub(crate) fn page_name(page: usize) -> &'static str {
-    PAGE_NAMES.get(page).copied().unwrap_or("数字资产")
+    if page == VAULT_PAGE { "密码库" } else { PAGE_NAMES.get(page).copied().unwrap_or("数字资产") }
+}
+
+pub(crate) fn settings_tab(page: usize) -> usize {
+    match page {
+        VAULT_PAGE => 14,
+        ASSETS_PAGE => 18,
+        TODO_PAGE if managed() => 17,
+        _ => crate::app::PAGE_SETTINGS_TABS.get(page).copied().unwrap_or(0),
+    }
 }
 
 pub fn managed() -> bool {
@@ -76,6 +86,8 @@ pub(crate) struct Bridge {
     rows: Option<Vec<Memo>>,
     assets: Option<Vec<IslandAsset>>,
     assets_error: bool,
+    vault_exists: bool,
+    vault_unlocked: bool,
     asset_page: usize,
     swipe_start: Option<egui::Pos2>,
     horizontal_delta: f32,
@@ -119,6 +131,8 @@ impl Bridge {
             rows: None,
             assets: None,
             assets_error: false,
+            vault_exists: false,
+            vault_unlocked: false,
             asset_page: 0,
             swipe_start: None,
             horizontal_delta: 0.0,
@@ -139,14 +153,28 @@ impl Bridge {
     pub(crate) fn set_test_assets(&mut self, rows: Value) {
         self.assets = Some(serde_json::from_value(rows).expect("valid test asset rows"));
     }
+
+    #[cfg(test)]
+    pub(crate) fn set_test_snapshot(&mut self, data: Value) {
+        let (sender, receiver) = mpsc::channel();
+        sender.send(Reply::Snapshot(data)).ok().expect("test bridge accepts the reply");
+        self.receiver = receiver;
+        self.next_poll = Instant::now() + Duration::from_secs(60);
+    }
 }
 
 impl App {
     pub fn poll_memodesk(&mut self, ctx: &egui::Context) {
         let Some(mut bridge) = self.memo_bridge.take() else { return };
+        let mut navigate = None;
         while let Ok(reply) = bridge.receiver.try_recv() {
             match reply {
                 Reply::Snapshot(data) => {
+                    bridge.vault_exists = data["vault"]["exists"].as_bool().unwrap_or(false);
+                    bridge.vault_unlocked = data["vault"]["unlocked"].as_bool().unwrap_or(false);
+                    if let Some(page) = data["navigate"].as_str() {
+                        navigate = Some(page.to_owned());
+                    }
                     bridge.outstanding = false;
                     if let Some(updated) = data["updated"].as_i64() {
                         bridge.since = updated;
@@ -213,6 +241,11 @@ impl App {
         }
         ctx.request_repaint_after(Duration::from_secs(1));
         self.memo_bridge = Some(bridge);
+        match navigate.as_deref() {
+            Some("settings") => { self.settings_tab = 0; self.open_settings(); }
+            Some("vault") => self.show_page(VAULT_PAGE),
+            _ => {}
+        }
     }
 
     pub(crate) fn page_assets(&mut self, c: &Card) {
@@ -254,6 +287,26 @@ impl App {
         }
         if manage {
             self.memo_open("assets");
+        }
+    }
+
+    pub(crate) fn page_vault(&mut self, c: &Card) {
+        let Some(bridge) = self.memo_bridge.as_ref() else { return };
+        let exists = bridge.vault_exists;
+        let unlocked = bridge.vault_unlocked;
+        c.fill(40.0, 34.0, 339.0, 63.0, 10.0, theme::CARD);
+        let status = if unlocked { "密码库已解锁" } else if exists { "密码库已锁定" } else { "创建你的密码库" };
+        c.text(54.0, 57.0, status, size::BODY, W::Semibold, theme::WHITE, H::Left);
+        c.text(54.0, 80.0, "使用主密码解锁后检索和复制账号", size::SMALL, W::Regular, theme::GRAY, H::Left);
+        if asset_button(c, 40.0, 105.0, 108.0, "vault-search", if unlocked { "检索账号" } else if exists { "解锁并检索" } else { "创建密码库" }, true) {
+            if let Some(bridge) = self.memo_bridge.as_mut() { bridge.send(json!({"op":"vault"}), None); }
+        }
+        if asset_button(c, 158.0, 105.0, 92.0, "vault-manage", "管理密码库", true) { self.memo_open("vault"); }
+        if unlocked && asset_button(c, 260.0, 105.0, 92.0, "vault-lock", "立即锁定", true) {
+            if let Some(bridge) = self.memo_bridge.as_mut() {
+                bridge.vault_unlocked = false;
+                bridge.send(json!({"op":"vault-lock"}), None);
+            }
         }
     }
 

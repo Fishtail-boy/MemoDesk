@@ -16,6 +16,7 @@ using MemoDesk.Infrastructure.Settings;
 using MemoDesk.Infrastructure.Storage;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
+using MemoDesk.Vault.Core;
 
 namespace MemoDesk.App.Services;
 
@@ -35,15 +36,20 @@ internal sealed class DaozaiIsland : IDisposable
     private readonly Dispatcher _dispatcher;
     private Process? _process;
     private CancellationTokenSource? _stop;
+    private string? _requestedPage;
+    private readonly IVaultService _vault;
+    private readonly VaultLockCoordinator _vaultLocks;
 
     public DaozaiIsland(AppPaths paths, AppSettings settings, ItemQueryService query, ItemService items,
         IReminderRepository reminders, MemoCaptureService capture, TimeProvider clock, ILogger<DaozaiIsland> logger,
-        SqliteDigitalAssetStore assets)
+        SqliteDigitalAssetStore assets, IVaultService vault, VaultLockCoordinator vaultLocks)
     {
         _paths = paths;
         _settings = settings;
         _query = query;
         _assets = assets;
+        _vault = vault;
+        _vaultLocks = vaultLocks;
         _items = items;
         _reminders = reminders;
         _capture = capture;
@@ -60,6 +66,7 @@ internal sealed class DaozaiIsland : IDisposable
     public event Action<string>? OpenPage;
     public event Action<int, string, int, int, int, int, bool>? ShowWorkbench;
     public event Action? CloseWorkbench;
+    public void RequestPage(string page) => Interlocked.Exchange(ref _requestedPage, page);
 
     public bool Start()
     {
@@ -162,6 +169,11 @@ internal sealed class DaozaiIsland : IDisposable
         if (request.Op is "workbench" or "vault" or "settings" or "restart")
         {
             _ = _dispatcher.InvokeAsync(() => OpenPage?.Invoke(request.Op));
+            return new { };
+        }
+        if (request.Op == "vault-lock")
+        {
+            _dispatcher.Invoke(_vaultLocks.Lock);
             return new { };
         }
         if (request.Op == "asset-link")
@@ -267,7 +279,10 @@ internal sealed class DaozaiIsland : IDisposable
         {
             previousAssets = null;
         }
-        return new { items, notices, updated, assets, assetError };
+        // Only session state crosses into the island process. Account metadata and secrets stay in the vault UI.
+        var vault = new { exists = _vault.Exists, unlocked = _vault.IsUnlocked };
+        return new { items, notices, updated, assets, assetError, vault,
+            navigate = Interlocked.Exchange(ref _requestedPage, null) };
     }
 
     private IslandRow ToRow(Item item, TimeZoneInfo zone) => ToRow(item, zone, _reminders.GetActiveForItem(item.Id));

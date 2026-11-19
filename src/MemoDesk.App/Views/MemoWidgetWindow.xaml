@@ -124,6 +124,7 @@
 
                     <Grid x:Name="PageBody" Grid.Column="1" Margin="8,0" Background="Transparent"
                           PreviewMouseLeftButtonDown="PageBody_MouseDown" PreviewMouseLeftButtonUp="PageBody_MouseUp">
+                        <ContentControl x:Name="PreferencesPanel" Visibility="Collapsed" />
                         <Grid x:Name="MemosPanel">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="114" />
@@ -246,6 +247,11 @@
                             </StackPanel>
                         </ScrollViewer>
 
+                        <StackPanel x:Name="VaultPanel" Visibility="Collapsed" VerticalAlignment="Center" Margin="12">
+                            <TextBlock Text="密码库" Style="{StaticResource SectionTitle}" />
+                            <TextBlock Text="使用主密码解锁后检索、复制和管理账号。" Style="{StaticResource MetaText}" Margin="0,8,0,14" />
+                            <Button Content="打开密码库" Tag="vault" Style="{StaticResource PrimaryButton}" Click="OpenMain_Click" HorizontalAlignment="Left" />
+                        </StackPanel>
                         <DockPanel x:Name="AssetsPanel" Visibility="Collapsed">
                             <StackPanel DockPanel.Dock="Top">
                                 <Button Content="管理资产" Style="{StaticResource LinkButton}" Tag="assets" Click="OpenMain_Click"
@@ -284,13 +290,14 @@
                     </Grid>
                 </Grid>
 
-                <UniformGrid x:Name="PageTabs" Grid.Row="2" Columns="5" HorizontalAlignment="Center"
+                <UniformGrid x:Name="PageTabs" Grid.Row="2" Columns="6" HorizontalAlignment="Center"
                              KeyboardNavigation.TabNavigation="Continue">
                     <Button Content="备忘" Tag="0" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
                     <Button Content="数字资产" Tag="1" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
-                    <Button Content="日程" Tag="2" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
-                    <Button Content="消息" Tag="3" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
-                    <Button Content="额度" Tag="4" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
+                    <Button Content="密码库" Tag="2" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
+                    <Button Content="日程" Tag="3" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
+                    <Button Content="消息" Tag="4" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
+                    <Button Content="额度" Tag="5" Style="{StaticResource IslandTab}" Click="PageTab_Click" />
                 </UniformGrid>
             </Grid>
         </Grid>

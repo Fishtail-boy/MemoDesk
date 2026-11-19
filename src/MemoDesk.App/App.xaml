@@ -734,7 +734,7 @@
             <views:SearchView />
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
-            <views:SettingsView />
+            <views:IslandPreferencesView />
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:VaultViewModel}">
             <views:VaultView />

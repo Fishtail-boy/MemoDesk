@@ -362,7 +362,15 @@ public partial class App : Application
         _tray.SettingsRequested += (_, _) => Dispatcher.InvokeAsync(() => ShowMainWindow("settings"));
         _tray.ToggleWidgetRequested += (_, _) => Dispatcher.InvokeAsync(ToggleIsland);
         _tray.ExitRequested += (_, _) => Dispatcher.InvokeAsync(ExitApplication);
-        _tray.VaultRequested += (_, _) => Dispatcher.InvokeAsync(() => ShowMainWindow("vault"));
+        _tray.VaultRequested += (_, _) => Dispatcher.InvokeAsync(() =>
+        {
+            if (_nativeIsland is not null)
+            {
+                SetNativeIslandVisible(true);
+                _nativeIsland.RequestPage("vault");
+            }
+            else ShowVaultQuick();
+        });
         _tray.VaultLockRequested += (_, _) => Dispatcher.InvokeAsync(() => _vaultLocks?.Lock());
 
         var hotkeyStatus = _host!.Services.GetRequiredService<HotkeyStatus>();
@@ -648,6 +656,16 @@ public partial class App : Application
     {
         if (_host is null)
         {
+            return;
+        }
+        if (navigateTo == "settings")
+        {
+            if (_nativeIsland is not null)
+            {
+                SetNativeIslandVisible(true);
+                _nativeIsland.RequestPage("settings");
+            }
+            else _widget?.ShowPreferences();
             return;
         }
 

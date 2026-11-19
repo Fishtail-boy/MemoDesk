@@ -9,12 +9,12 @@ using System.Windows.Media;
 
 namespace MemoDesk.App.Views;
 
-public partial class SettingsView : UserControl
+public partial class IslandPreferencesView : UserControl
 {
     private bool _recording;
     private string? _pendingGesture;
 
-    public SettingsView()
+    public IslandPreferencesView()
     {
         InitializeComponent();
         Unloaded += (_, _) => CancelRecordingIfNeeded();

@@ -22,9 +22,9 @@ namespace MemoDesk.App.Views;
 
 public partial class MemoWidgetWindow : Window
 {
-    private static readonly string[] Titles = ["备忘", "数字资产", "日程", "消息", "额度"];
+    private static readonly string[] Titles = ["备忘", "数字资产", "密码库", "日程", "消息", "额度"];
     private const int AssetsPage = 1;
-    private const int QuotaPage = 4;
+    private const int QuotaPage = 5;
     private readonly ItemQueryService _query;
     private readonly ReminderQueryService? _reminderQuery;
     private readonly ItemService _items;
@@ -33,6 +33,7 @@ public partial class MemoWidgetWindow : Window
     private readonly TimeProvider _clock;
     private readonly IReminderRepository? _reminders;
     private readonly SqliteDigitalAssetStore _assets;
+    private readonly SettingsViewModel _preferences;
     private readonly MonitorLocator _monitors = new();
     private readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _hover = new() { Interval = TimeSpan.FromMilliseconds(200) };
@@ -62,7 +63,7 @@ public partial class MemoWidgetWindow : Window
     private DateTimeOffset _nextAssetRefresh;
 
     public MemoWidgetWindow(ItemQueryService query, ItemService items, AppSettings settings,
-        DialogService dialogs, TimeProvider clock, SqliteDigitalAssetStore assets, IReminderRepository? reminders = null,
+        DialogService dialogs, TimeProvider clock, SqliteDigitalAssetStore assets, SettingsViewModel preferences, IReminderRepository? reminders = null,
         ReminderQueryService? reminderQuery = null)
     {
         _query = query;
@@ -71,6 +72,7 @@ public partial class MemoWidgetWindow : Window
         _dialogs = dialogs;
         _clock = clock;
         _assets = assets;
+        _preferences = preferences;
         _reminders = reminders;
         _reminderQuery = reminderQuery;
         _state = settings.Widget;
@@ -361,9 +363,10 @@ public partial class MemoWidgetWindow : Window
 
     private void ShowPage(int index)
     {
+        PreferencesPanel.Visibility = Visibility.Collapsed;
         _page = index;
         PanelTitle.Text = Titles[index];
-        FrameworkElement[] pages = [MemosPanel, AssetsPanel, AgendaPanel, MessagesPanel, QuotaPanel];
+        FrameworkElement[] pages = [MemosPanel, AssetsPanel, VaultPanel, AgendaPanel, MessagesPanel, QuotaPanel];
         for (var i = 0; i < pages.Length; i++)
         {
             pages[i].Visibility = i == index ? Visibility.Visible : Visibility.Collapsed;
@@ -376,6 +379,18 @@ public partial class MemoWidgetWindow : Window
             _ = RefreshQuotaAsync();
         if (index == AssetsPage)
             RefreshAssets(_clock.GetUtcNow());
+    }
+
+    public void ShowPreferences()
+    {
+        ShowWidget();
+        SetExpanded(true, animate: false);
+        _preferences.Load();
+        PreferencesPanel.Content = new IslandPreferencesView { DataContext = _preferences };
+        foreach (FrameworkElement panel in new FrameworkElement[] { MemosPanel, AssetsPanel, VaultPanel, AgendaPanel, MessagesPanel, QuotaPanel })
+            panel.Visibility = Visibility.Collapsed;
+        PreferencesPanel.Visibility = Visibility.Visible;
+        PanelTitle.Text = "灵动岛设置";
     }
 
     private void RefreshAssets(DateTimeOffset now)

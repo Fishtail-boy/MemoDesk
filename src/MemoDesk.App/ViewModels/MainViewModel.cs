@@ -67,7 +67,6 @@ public partial class MainViewModel : ObservableObject
             new NavItemViewModel("assets", "数字资产"),
             new NavItemViewModel("worklogs", "工作记录"),
             new NavItemViewModel("reminders", "提醒"),
-            new NavItemViewModel("settings", "设置"),
         };
 
         _drafts.DraftCountChanged += OnDraftCountChanged;

@@ -60,13 +60,13 @@ Change-Source 'app.rs' '            4 => ("待办", "清单", theme::GREEN),' @'
             4 if self.memo_bridge.is_some() => ("备忘", "清单", theme::GREEN),
             4 => ("待办", "清单", theme::GREEN),
 '@
-Change-Source 'app.rs' '    dots: [Spring; 9],' '    dots: [Spring; PAGE_NAMES.len() + 1],'
+Change-Source 'app.rs' '    dots: [Spring; 9],' '    dots: [Spring; PAGE_NAMES.len() + 2],'
 Change-Source 'app.rs' '        if !self.settings.visible_pages[page] {' '        if !self.module_on(page) {'
 Change-Source 'app.rs' '        if !self.settings.visible_pages[self.page] {' '        if !self.module_on(self.page) {'
 Change-Source 'app.rs' 'if page == self.page || !self.settings.visible_pages[page]' 'if page == self.page || !self.module_on(page)'
 Change-Source 'app.rs' 'pub fn module_on(&self,page:usize)->bool {self.settings.visible_pages.get(page).copied().unwrap_or(false)}' @'
 pub fn module_on(&self, page: usize) -> bool {
-        if page == crate::memodesk::ASSETS_PAGE { return self.memo_bridge.is_some(); }
+        if page == crate::memodesk::ASSETS_PAGE || page == crate::memodesk::VAULT_PAGE { return self.memo_bridge.is_some(); }
         self.settings.visible_pages.get(page).copied().unwrap_or(false)
     }
 '@
@@ -88,6 +88,7 @@ Change-Source 'app.rs' @'
             if self.module_on(page) { pages.push(page); }
             if page == TODO_PAGE && self.module_on(crate::memodesk::ASSETS_PAGE) {
                 pages.push(crate::memodesk::ASSETS_PAGE);
+                pages.push(crate::memodesk::VAULT_PAGE);
             }
         }
         pages
@@ -100,8 +101,8 @@ Change-Source 'app.rs' @'
         self.go(pages[(position + offset) % pages.len()], if next { 1.0 } else { -1.0 });
     }
 '@
-Change-Source 'app.rs' 'PAGE_SETTINGS_TABS[page]' 'PAGE_SETTINGS_TABS.get(page).copied().unwrap_or(18)'
-Change-Source 'app.rs' 'PAGE_SETTINGS_TABS[self.page]' 'PAGE_SETTINGS_TABS.get(self.page).copied().unwrap_or(18)'
+Change-Source 'app.rs' 'PAGE_SETTINGS_TABS[page]' 'crate::memodesk::settings_tab(page)'
+Change-Source 'app.rs' 'PAGE_SETTINGS_TABS[self.page]' 'crate::memodesk::settings_tab(self.page)'
 Change-Source 'app.rs' 'PAGE_NAMES[self.page]' 'crate::memodesk::page_name(self.page)'
 Change-Source 'app.rs' 'PAGE_NAMES[i]' 'crate::memodesk::page_name(i)'
 Change-Source 'app.rs' 'let pages: Vec<_>=self.settings.page_order.iter().copied().filter(|page|self.settings.visible_pages[*page]).collect();' 'let pages = self.visible_page_order();'
@@ -109,11 +110,13 @@ Change-Source 'app.rs' 'for i in pages {' 'for &i in &pages {'
 Change-Source 'app.rs' 'let position=|page|self.settings.page_order.iter().position(|p|*p==page).unwrap();' 'let position=|page|pages.iter().position(|p|*p==page).unwrap();'
 Change-Source 'app.rs' '            _ => ("岛仔", "设置", theme::WHITE),' @'
             crate::memodesk::ASSETS_PAGE => ("数字资产", "", theme::CYAN),
+            crate::memodesk::VAULT_PAGE => ("密码库", "", theme::CYAN),
             _ => ("岛仔", "设置", theme::WHITE),
 '@
 Change-Source 'app.rs' '            CALENDAR_PAGE => self.page_calendar(c,env),' @'
             CALENDAR_PAGE => self.page_calendar(c,env),
             crate::memodesk::ASSETS_PAGE => self.page_assets(c),
+            crate::memodesk::VAULT_PAGE => self.page_vault(c),
 '@
 Change-Source 'app.rs' '        if (!self.is_editing() || self.todo_choosing) && inside && self.open && self.reveal > 0.95 {' @'
         let swipe_enabled = inside && self.open && self.reveal > 0.95 && !self.is_editing()
@@ -139,11 +142,8 @@ Change-Source 'app.rs' '            let mut added=false;' @'
 
 Change-Source 'pages.rs' '        let can_edit = !self.todos.items.is_empty()' @'
         if self.memo_bridge.is_some() {
-            let (vault, label) = capsule(c, 41.0, 31.0, 61.0, 17.0, "memo-vault", theme::BTN, theme::BTN_HOVER);
-            label.text(71.5, 43.0, "密码库", size::SMALL, W::Regular, theme::WHITE, H::Center);
-            if vault.clicked() { self.memo_open("vault"); }
-            let (main, label) = capsule(c, 108.0, 31.0, 66.0, 17.0, "memo-workbench", theme::BTN, theme::BTN_HOVER);
-            label.text(141.0, 43.0, "工作台", size::SMALL, W::Regular, theme::WHITE, H::Center);
+            let (main, label) = capsule(c, 41.0, 31.0, 66.0, 17.0, "memo-workbench", theme::BTN, theme::BTN_HOVER);
+            label.text(74.0, 43.0, "工作台", size::SMALL, W::Regular, theme::WHITE, H::Center);
             if main.clicked() { self.memo_open("workbench"); }
         }
         let can_edit = !self.todos.items.is_empty()
@@ -210,8 +210,8 @@ Change-Source 'extras.rs' '                for (name,start,end) in SETTINGS_GROU
                 egui::ScrollArea::vertical().id_salt("settings-navigation").show(ui, |ui| {
                 let managed = self.memo_bridge.is_some();
                 for (name,start,end) in (if managed {
-                    vec![("备忘",13,13), ("密码库",14,14), ("数字资产",18,18), ("工作记录",15,15), ("提醒",16,16), ("备忘设置",17,17)]
-                } else { vec![] }).into_iter().chain(SETTINGS_GROUPS.into_iter().filter(|(_,start,_)| !managed || *start != 9)) {
+                    vec![("备忘与提醒",17,17), ("备忘",13,13), ("密码库",14,14), ("数字资产",18,18), ("工作记录",15,15), ("提醒记录",16,16)]
+                } else { vec![] }).into_iter().chain(SETTINGS_GROUPS.into_iter().filter(|(_,start,_)| !managed || !matches!(*start, 4 | 9))) {
 '@
 Change-Source 'extras.rs' @'
                     ui.add_space(3.0);
@@ -227,7 +227,7 @@ Change-Source 'extras.rs' @'
 '@
 Change-Source 'extras.rs' '                    if start==9 {ui.add_space((ui.available_height()-38.0).max(0.0));}' '                    if start==9 && self.memo_bridge.is_none() {ui.add_space((ui.available_height()-38.0).max(0.0));}'
 Change-Source 'extras.rs' '                let titles=["常规","音乐与歌词","专注","健康提醒","待办","置物","通知","邮箱","日程","关于","页面管理","AI 额度","天气"];' @'
-                let titles=["常规","音乐与歌词","专注","健康提醒","待办","置物","通知","邮箱","日程","关于","页面管理","AI 额度","天气","备忘","密码库","工作记录","提醒","备忘设置","数字资产"];
+                let titles=["常规","音乐与歌词","专注","健康提醒","待办","置物","通知","邮箱","日程","关于","页面管理","AI 额度","天气","备忘","密码库","工作记录","提醒记录","备忘与提醒","数字资产"];
                 if self.memo_bridge.is_some() && self.settings_tab == 9 { self.settings_tab = 0; }
                 if self.memo_bridge.is_some() && self.settings_tab >= 13 {
                     self.memo_host_ui(ui);

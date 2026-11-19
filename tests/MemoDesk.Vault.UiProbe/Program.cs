@@ -281,7 +281,7 @@ internal static class Program
         nav.NavigateTo("settings"); await Render();
         var model = host.Services.GetRequiredService<SettingsViewModel>();
         var settings = host.Services.GetRequiredService<AppSettings>();
-        var page = Descendants<SettingsView>(main).Single();
+        var page = Descendants<IslandPreferencesView>(main).Single();
         var keyBox = (PasswordBox)page.FindName("ApiKeyBox");
         keyBox.Password = "synthetic-settings-key";
         model.ApiBaseUrl = "http://remote.invalid";
