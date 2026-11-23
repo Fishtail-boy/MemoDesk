@@ -362,15 +362,7 @@ public partial class App : Application
         _tray.SettingsRequested += (_, _) => Dispatcher.InvokeAsync(() => ShowMainWindow("settings"));
         _tray.ToggleWidgetRequested += (_, _) => Dispatcher.InvokeAsync(ToggleIsland);
         _tray.ExitRequested += (_, _) => Dispatcher.InvokeAsync(ExitApplication);
-        _tray.VaultRequested += (_, _) => Dispatcher.InvokeAsync(() =>
-        {
-            if (_nativeIsland is not null)
-            {
-                SetNativeIslandVisible(true);
-                _nativeIsland.RequestPage("vault");
-            }
-            else ShowVaultQuick();
-        });
+        _tray.VaultRequested += (_, _) => Dispatcher.InvokeAsync(ShowVaultModule);
         _tray.VaultLockRequested += (_, _) => Dispatcher.InvokeAsync(() => _vaultLocks?.Lock());
 
         var hotkeyStatus = _host!.Services.GetRequiredService<HotkeyStatus>();
@@ -405,7 +397,7 @@ public partial class App : Application
         var coordinator = _host.Services.GetRequiredService<MemoParseCoordinator>();
         var today = _host.Services.GetRequiredService<TodayViewModel>();
         var memos = _host.Services.GetRequiredService<MemosViewModel>();
-        window.VaultRequested += () => ShowMainWindow("vault");
+        window.VaultRequested += ShowVaultModule;
 
         today.QuickCaptureRequested += () => Dispatcher.InvokeAsync(ShowQuickCapture);
         memos.QuickCaptureRequested += () => Dispatcher.InvokeAsync(ShowQuickCapture);
@@ -461,11 +453,7 @@ public partial class App : Application
 
         // 启动恢复可能已经完成了一轮解析，补一次界面刷新。
         Dispatcher.InvokeAsync(
-            () =>
-            {
-                _mainViewModel?.RefreshAfterMemoChange();
-                _mainViewModel?.NavigateTo("memos");
-            },
+            () => _mainViewModel?.RefreshAfterMemoChange(),
             DispatcherPriority.Background);
     }
 
@@ -474,7 +462,7 @@ public partial class App : Application
         _reminderPresenter = _host!.Services.GetRequiredService<ReminderPresenter>();
         _reminderPresenter.ItemsChanged += () => Dispatcher.InvokeAsync(() =>
         {
-            _mainViewModel?.RefreshCurrent();
+            RefreshVisibleWorkbenches();
             _widget?.Refresh();
 
             // 完成/稍后提醒会改变计划，立即对账而不是等 60 秒轮询。
@@ -514,26 +502,36 @@ public partial class App : Application
                 if (page == "vault") ShowVaultQuick();
                 else if (page == "restart")
                 {
-                    _nativeIsland.Stop();
+                    _nativeIsland?.Stop();
                     SetNativeIslandVisible(true);
                 }
                 else ShowMainWindow(page == "settings" ? "settings" : "memos");
             };
-            _nativeIsland.Exited += () => { _islandWorkbench.Close(); SetNativeIslandVisible(false); };
-            _host.Services.GetRequiredService<SettingsViewModel>().SettingsSaved += () =>
-                SetNativeIslandVisible(nativeSettings.Widget.Visible);
+            _nativeIsland.Exited += ShowFallbackIsland;
             SetNativeIslandVisible(nativeSettings.Widget.Visible);
             return;
         }
 
+        ConfigureFallbackWidget();
+    }
+
+    private void ShowFallbackIsland()
+    {
+        if (_isExiting) return;
+        _islandWorkbench?.Dispose();
+        _islandWorkbench = null;
+        _nativeIsland?.Dispose();
+        _nativeIsland = null;
+        ConfigureFallbackWidget();
+        _tray?.ShowInfo("原生灵动岛已退出，已切换到备用灵动岛。");
+    }
+
+    private void ConfigureFallbackWidget()
+    {
         _widget = _host!.Services.GetRequiredService<MemoWidgetWindow>();
         var settings = _host.Services.GetRequiredService<AppSettings>();
 
-        _widget.VisibilityChanged += () =>
-        {
-            _tray?.SetWidgetVisible(_widget.IsVisible);
-            _host.Services.GetRequiredService<SettingsViewModel>().ShowDesktopWidget = _widget.IsVisible;
-        };
+        _widget.VisibilityChanged += () => _tray?.SetWidgetVisible(_widget.IsVisible);
         _widget.ItemsChanged += () => _mainViewModel?.RefreshCurrent();
         _widget.OpenMainRequested += () => Dispatcher.InvokeAsync(() => ShowMainWindow("memos"));
         _widget.OpenPageRequested += page => Dispatcher.InvokeAsync(() => ShowMainWindow(page));
@@ -545,11 +543,6 @@ public partial class App : Application
             _widget.ShowWidget();
         }
         _tray?.SetWidgetVisible(_widget.IsVisible);
-        _host.Services.GetRequiredService<SettingsViewModel>().SettingsSaved += () =>
-        {
-            if (_widget is null) return;
-            if (settings.Widget.Visible) _widget.ShowWidget(); else _widget.HideWidget();
-        };
     }
 
     private bool IslandVisible => _nativeIsland?.IsRunning == true || _widget?.IsVisible == true;
@@ -563,16 +556,22 @@ public partial class App : Application
     private void SetNativeIslandVisible(bool visible)
     {
         if (_host is null || _nativeIsland is null) return;
-        if (visible && !_nativeIsland.Start())
-        {
-            _tray?.ShowInfo("桌面岛启动失败，可以继续打开备忘工作台。");
-            visible = false;
-        }
-        if (!visible) { _islandWorkbench?.Close(); _nativeIsland.Stop(); }
         var settings = _host.Services.GetRequiredService<AppSettings>();
         if (settings.Widget.Visible != visible) settings.Widget = settings.Widget with { Visible = visible };
+        if (visible && !_nativeIsland.Start())
+        {
+            ShowFallbackIsland();
+            return;
+        }
+        if (!visible) { _islandWorkbench?.Close(); _nativeIsland.Stop(); }
         _tray?.SetWidgetVisible(visible);
-        _host.Services.GetRequiredService<SettingsViewModel>().ShowDesktopWidget = visible;
+    }
+
+    private void ShowVaultModule()
+    {
+        if (_nativeIsland is not null) SetNativeIslandVisible(true);
+        if (_nativeIsland is { } island) island.RequestPage("vault");
+        else _widget?.ShowVaultModule();
     }
 
     private void ConfigureNotifications()
@@ -616,11 +615,17 @@ public partial class App : Application
         var items = _host!.Services.GetRequiredService<ItemService>();
         items.ItemChanged += () => Dispatcher.InvokeAsync(() =>
         {
-            _mainViewModel?.RefreshCurrent();
+            RefreshVisibleWorkbenches();
             _widget?.Refresh();
             _scheduleCoordinator?.Reconcile();
             _reminderWake?.Wake();
         });
+    }
+
+    private void RefreshVisibleWorkbenches()
+    {
+        _mainViewModel?.RefreshCurrent();
+        _islandWorkbench?.RefreshCurrent();
     }
 
     private void OnClockChanged(object? sender, EventArgs e) => _reminderWake?.Wake();
@@ -660,11 +665,8 @@ public partial class App : Application
         }
         if (navigateTo == "settings")
         {
-            if (_nativeIsland is not null)
-            {
-                SetNativeIslandVisible(true);
-                _nativeIsland.RequestPage("settings");
-            }
+            if (_nativeIsland is not null) SetNativeIslandVisible(true);
+            if (_nativeIsland is { } island) island.RequestPage("settings");
             else _widget?.ShowPreferences();
             return;
         }

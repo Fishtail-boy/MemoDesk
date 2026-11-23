@@ -34,7 +34,7 @@ internal sealed class IslandWorkbenchHost : IDisposable
                 return;
             }
             var minimized = IsIconic(_parent);
-            if (minimized && !_parentMinimized) _vault.Lock();
+            if (minimized && !_parentMinimized && _page == "vault") _vault.Lock();
             _parentMinimized = minimized;
         };
     }
@@ -65,7 +65,16 @@ internal sealed class IslandWorkbenchHost : IDisposable
             };
             _window.SetResourceReference(Window.BackgroundProperty, "PaperBrush");
             _window.SetResourceReference(Window.ForegroundProperty, "InkBrush");
-            _window.Closed += (_, _) => { _window = null; _parent = IntPtr.Zero; _page = null; _dark = null; _vault.Lock(); };
+            _window.Closed += (_, _) =>
+            {
+                var wasVault = _page == "vault";
+                _parentTimer.Stop();
+                _window = null;
+                _parent = IntPtr.Zero;
+                _page = null;
+                _dark = null;
+                if (wasVault) _vault.Lock();
+            };
             var child = new WindowInteropHelper(_window).EnsureHandle();
             var style = GetWindowLongPtr(child, -16).ToInt64();
             SetWindowLongPtr(child, -16, new IntPtr((style & ~0x80000000L) | 0x40000000L));
@@ -83,10 +92,10 @@ internal sealed class IslandWorkbenchHost : IDisposable
         if (_page != page)
         {
             if (_page == "vault") _vault.Lock();
-            _viewModel.NavigateTo(page);
             var scroll = (ScrollViewer)_window.Content;
-            ((ContentControl)scroll.Content).MinWidth = page == "vault" ? 680 : 480;
-            ((ContentControl)scroll.Content).Content = _viewModel.CurrentPage;
+            var content = (ContentControl)scroll.Content;
+            content.MinWidth = page == "vault" ? 680 : 480;
+            content.Content = _viewModel.LoadPage(page).ViewModel;
             scroll.ScrollToLeftEnd();
             _page = page;
         }
@@ -95,6 +104,11 @@ internal sealed class IslandWorkbenchHost : IDisposable
         viewport.HorizontalScrollBarVisibility = width / VisualTreeHelper.GetDpi(_window).DpiScaleX < minWidth
             ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
         SetWindowPos(new WindowInteropHelper(_window).Handle, IntPtr.Zero, x, y, width, height, 0x0014 | 0x0040);
+    }
+
+    public void RefreshCurrent()
+    {
+        if (_page is { } page && page != _viewModel.CurrentKey) _viewModel.RefreshPage(page);
     }
 
     private static void ApplyTheme(Window window, bool dark)
@@ -128,11 +142,7 @@ internal sealed class IslandWorkbenchHost : IDisposable
     public void Close()
     {
         _parentTimer.Stop();
-        if (_window is { } window)
-        {
-            if (_page == "vault") _vault.Lock();
-            window.Close();
-        }
+        _window?.Close();
     }
 
     public void Dispose() => Close();

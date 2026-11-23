@@ -15,6 +15,7 @@ using MemoDesk.Platform.Windows.Security;
 using MemoDesk.App.Services;
 using MemoDesk.App.ViewModels;
 using MemoDesk.App.Views;
+using MemoDesk.Core.Capturing;
 using MemoDesk.Infrastructure;
 using MemoDesk.Infrastructure.Settings;
 using MemoDesk.Infrastructure.Storage;
@@ -253,7 +254,7 @@ internal static class Program
         var routed = false; capture.VaultRequested += () => routed = true;
         main.Activate(); capture.ShowForCapture(); await Render();
         var captureText = (TextBox)capture.FindName("InputBox"); captureText.Text = "synthetic-not-submitted";
-        Click(Button(capture, "账号和密码请使用密码库"));
+        Click((Button)capture.FindName("OpenVaultButton"));
         Check("quick-capture-vault-route-discards-unsaved-text", routed && captureText.Text.Length == 0 && !capture.IsVisible);
         vm.Locks.Lock();
         var version = vm.Vault.SessionVersion;
@@ -267,6 +268,7 @@ internal static class Program
         var restored = await vm.RunAsync(() => vm.Vault.RestoreBackup(backup, Master, restoreVersion), "恢复完成", changesSession: true);
         Check("restore-reports-success-and-requires-unlock", restored && !vm.IsUnlocked && vm.Status == "恢复完成");
         await SettingsChecks(main, host);
+        await IslandWorkbenchChecks(host, vm);
         await IpcChecks();
         await LegacyIpcChecks();
         if (_nativeClipboard) await NativeClipboardCheck();
@@ -291,9 +293,12 @@ internal static class Program
         model.ApiBaseUrl = AppSettings.DefaultApiBaseUrl; model.TimeZoneId = "invalid/timezone";
         Click(Button(page, "保存设置"));
         Check("invalid-timezone-does-not-partially-save", settings.ApiKey is null && keyBox.Password.Length > 0);
+        // Saving an already open form must respect a newer visibility change from the tray.
+        settings.Widget = settings.Widget with { Visible = false };
         model.TimeZoneId = "UTC"; Click(Button(page, "保存设置"));
         Check("valid-settings-save-and-clear-key-input", settings.TimeZoneId == "UTC"
             && settings.ApiKey == "synthetic-settings-key" && keyBox.Password.Length == 0 && model.StatusMessage == "设置已保存。");
+        Check("saving-settings-preserves-current-island-visibility", !settings.Widget.Visible);
         var backups = host.Services.GetRequiredService<DatabaseBackupService>();
         var export = Path.Combine(Output, "ui-verified-export.memobak");
         await Task.Run(() => backups.Export(export));
@@ -301,6 +306,70 @@ internal static class Program
         var scroll = Descendants<ScrollViewer>(page).First(); scroll.ScrollToEnd(); await Render();
         Check("backup-actions-visible", Button(page, "导出备忘备份").IsVisible && Button(page, "打开自动备份目录").IsVisible);
         Capture(main, "settings-backup.png");
+    }
+
+    private static async Task IslandWorkbenchChecks(IHost host, VaultViewModel vault)
+    {
+        var nav = host.Services.GetRequiredService<MainViewModel>();
+        var settings = host.Services.GetRequiredService<SettingsViewModel>();
+        var hostType = typeof(App.App).Assembly.GetType("MemoDesk.App.Services.IslandWorkbenchHost", throwOnError: true)!;
+        using var island = (IDisposable)Activator.CreateInstance(hostType, nav, vault.Locks)!;
+        var show = hostType.GetMethod("Show")!;
+        var close = hostType.GetMethod("Close")!;
+        var parent = new Window { Title = "备忘设置", Width = 840, Height = 640, ShowInTaskbar = false };
+        parent.Show();
+        try
+        {
+            nav.NavigateTo("assets");
+            var originalPage = nav.CurrentPage;
+            show.Invoke(island, [Environment.ProcessId, "settings", 24, 24, 760, 560, true]);
+            var window = Field<Window>(island, "_window");
+            window.UpdateLayout();
+            var page = Descendants<IslandPreferencesView>(window).Single();
+            const string pendingKey = "synthetic-unsaved-key";
+            ((PasswordBox)page.FindName("ApiKeyBox")).Password = pendingKey;
+            settings.TimeZoneId = "Asia/Tokyo";
+
+            nav.RefreshAfterMemoChange();
+            await Render();
+            var samePage = nav.CurrentKey == "assets" && ReferenceEquals(nav.CurrentPage, originalPage)
+                && nav.Navigation.Single(item => item.IsActive).Key == "assets";
+            var settingsPreserved = settings.TimeZoneId == "Asia/Tokyo" && settings.ApiKeyInput == pendingKey;
+
+            vault.Vault.Unlock(Master);
+            parent.WindowState = WindowState.Minimized;
+            await Wait(() => Field<bool>(island, "_parentMinimized"));
+            Check("minimizing-island-settings-keeps-the-vault-session", vault.Vault.IsUnlocked);
+            parent.WindowState = WindowState.Normal;
+            await Wait(() => !Field<bool>(island, "_parentMinimized"));
+            close.Invoke(island, null);
+            var vaultStayedOpen = vault.Vault.IsUnlocked;
+            Check("island-settings-have-independent-navigation", samePage);
+            Check("memo-refresh-preserves-unsaved-island-settings", settingsPreserved);
+            Check("closing-island-settings-keeps-the-vault-session", vaultStayedOpen);
+
+            show.Invoke(island, [Environment.ProcessId, "vault", 24, 24, 760, 560, true]);
+            parent.WindowState = WindowState.Minimized;
+            await Wait(() => Field<bool>(island, "_parentMinimized"));
+            Check("minimizing-the-island-vault-locks-it", !vault.Vault.IsUnlocked);
+            parent.WindowState = WindowState.Normal;
+            await Wait(() => !Field<bool>(island, "_parentMinimized"));
+            vault.Vault.Unlock(Master);
+            close.Invoke(island, null);
+            Check("closing-the-island-vault-locks-it", !vault.Vault.IsUnlocked);
+
+            show.Invoke(island, [Environment.ProcessId, "memos", 24, 24, 760, 560, true]);
+            var memos = host.Services.GetRequiredService<MemosViewModel>();
+            const string newMemo = "Synthetic memo added while the island workbench is open";
+            host.Services.GetRequiredService<MemoCaptureService>().Capture(newMemo, "UTC");
+            nav.RefreshCurrent();
+            hostType.GetMethod("RefreshCurrent")!.Invoke(island, null);
+            Check("item-refresh-reaches-the-island-memos-page", memos.Rows.Any(row => row.Content == newMemo));
+        }
+        finally
+        {
+            parent.Close();
+        }
     }
 
     private static async Task IpcChecks()

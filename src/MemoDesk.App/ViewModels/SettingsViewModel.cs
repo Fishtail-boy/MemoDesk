@@ -127,7 +127,6 @@ public partial class SettingsViewModel : ObservableObject
     private bool useSystemNotifications;
 
     [ObservableProperty] private bool allowFallbackNotifications;
-    [ObservableProperty] private bool showDesktopWidget;
     [ObservableProperty] private string notificationStatus = string.Empty;
 
     [ObservableProperty]
@@ -176,7 +175,6 @@ public partial class SettingsViewModel : ObservableObject
         HasApiKey = !string.IsNullOrEmpty(_settings.ApiKey);
         UseSystemNotifications = _settings.UseSystemNotifications;
         AllowFallbackNotifications = _settings.AllowFallbackNotifications;
-        ShowDesktopWidget = _settings.Widget.Visible;
         RefreshNotificationStatus();
         ApiKeyInput = string.Empty;
 
@@ -305,7 +303,7 @@ public partial class SettingsViewModel : ObservableObject
         try
         {
             _settings.SaveConfiguration(TimeZoneId, ApiBaseUrl, ApiModel, ApiKeyInput, options,
-                UseSystemNotifications, AllowFallbackNotifications, ShowDesktopWidget);
+                UseSystemNotifications, AllowFallbackNotifications, _settings.Widget.Visible);
             ApiKeyInput = string.Empty;
             HasApiKey = !string.IsNullOrEmpty(_settings.ApiKey);
         }

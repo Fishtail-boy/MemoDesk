@@ -100,6 +100,17 @@ public partial class MainViewModel : ObservableObject
             _drafts.PersistEdits();
         }
 
+        var (pageKey, viewModel) = LoadPage(key);
+        CurrentKey = pageKey;
+        CurrentPage = viewModel;
+        foreach (var item in Navigation)
+        {
+            item.IsActive = item.Key == pageKey;
+        }
+    }
+
+    internal (string Key, object ViewModel) LoadPage(string key)
+    {
         object page;
         switch (key)
         {
@@ -141,21 +152,19 @@ public partial class MainViewModel : ObservableObject
                 break;
         }
 
-        CurrentKey = key;
-        CurrentPage = page;
-        foreach (var item in Navigation)
-        {
-            item.IsActive = item.Key == key;
-        }
+        return (key, page);
     }
 
     /// <summary>外部数据发生变化（确认草稿、提醒完成等）后刷新当前页。</summary>
-    public void RefreshCurrent()
+    public void RefreshCurrent() => RefreshPage(CurrentKey);
+
+    internal void RefreshPage(string key)
     {
-        switch (CurrentKey)
+        switch (key)
         {
+            // 备忘后台刷新不能清空密码库选择或覆盖未保存的设置。
             case "vault":
-                break; // 备忘后台刷新不能重置密码库选择或延长会话。
+            case "settings":
             case "assets":
                 break;
             case "drafts":
@@ -172,9 +181,6 @@ public partial class MainViewModel : ObservableObject
                 break;
             case "search":
                 _search.Refresh();
-                break;
-            case "settings":
-                _settings.Load();
                 break;
             default:
                 _memos.Refresh();
@@ -194,7 +200,7 @@ public partial class MainViewModel : ObservableObject
         _memos.Refresh();
         _workLogs.Refresh();
         _reminders.Refresh();
-        RefreshCurrent();
+        if (CurrentKey is not ("memos" or "worklogs" or "reminders")) RefreshCurrent();
     }
 
     private void OnDraftCountChanged(object? sender, int count)

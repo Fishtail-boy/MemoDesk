@@ -24,6 +24,7 @@ public partial class MemoWidgetWindow : Window
 {
     private static readonly string[] Titles = ["备忘", "数字资产", "密码库", "日程", "消息", "额度"];
     private const int AssetsPage = 1;
+    private const int VaultPage = 2;
     private const int QuotaPage = 5;
     private readonly ItemQueryService _query;
     private readonly ReminderQueryService? _reminderQuery;
@@ -391,6 +392,14 @@ public partial class MemoWidgetWindow : Window
             panel.Visibility = Visibility.Collapsed;
         PreferencesPanel.Visibility = Visibility.Visible;
         PanelTitle.Text = "灵动岛设置";
+    }
+
+    public void ShowVaultModule()
+    {
+        ShowWidget();
+        _leave.Stop();
+        _page = VaultPage;
+        SetExpanded(true, animate: false);
     }
 
     private void RefreshAssets(DateTimeOffset now)

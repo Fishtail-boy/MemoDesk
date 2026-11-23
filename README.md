@@ -6,7 +6,7 @@
 
 `Windows 10 / 11` · `.NET 10` · `WPF` · `SQLite` · `DeepSeek`
 
-当前源码为 **0.11.0-rc.4 候选版**。新安装默认开启灵动岛，密码库可以独立滑动切换，设置集中在灵动岛。安装和升级说明见 [发行说明](docs/releases/v0.11.0-rc.4.md)。
+当前源码为 **0.11.0-rc.5 候选版**。在主工作台查看数字资产时，可以单独打开灵动岛设置。后台备忘刷新会保留正在编辑的设置。[发行说明](docs/releases/v0.11.0-rc.5.md)
 
 ![MemoDesk 主界面](docs/screenshots/main-window.png)
 
@@ -63,7 +63,7 @@ MemoDesk 把常用操作缩短为 **快捷键 → 一句话 → 回车**。内�
 
 ## 快速开始
 
-从 [最新候选版](https://github.com/Fishtail-boy/MemoDesk/releases/tag/v0.11.0-rc.4) 下载 Windows x64 安装包，按向导安装后从开始菜单启动。更新前请从托盘退出旧版本。安装包无需另装 .NET，尚未签名。
+从 [最新候选版](https://github.com/Fishtail-boy/MemoDesk/releases/tag/v0.11.0-rc.5) 下载 Windows x64 安装包，按向导安装后从开始菜单启动。更新前请从托盘退出旧版本。安装包无需另装 .NET，尚未签名。
 
 如需从源码构建，建议使用 Windows 11 x64 和 [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)；`global.json` 固定 .NET 10 分支并允许后续功能版本。
 
@@ -164,7 +164,7 @@ docs/screenshots/             使用示例数据的界面截图
 
 ## 验证状态
 
-**0.11.0-rc.4** 的测试涵盖备忘和密码库回归、数字资产与数据库升级、灵动岛的横滑和托盘导航、首次启动默认值及 WPF 设置面板。详见 [发行说明](docs/releases/v0.11.0-rc.4.md)。
+**0.11.0-rc.5** 的测试涵盖数字资产横滑和到期信息展示、灵动岛与主工作台的独立导航、设置草稿保留、密码库锁定和原生岛退出后的备用岛切换。[发行说明](docs/releases/v0.11.0-rc.5.md)
 
 以下保留 **0.10.3-preview** 于 2026-11-01 的历史验证：
 
